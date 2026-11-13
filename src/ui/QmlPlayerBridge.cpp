@@ -88,6 +88,7 @@ QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesyst
     impl_->enumerateGpuAdapters();
     impl_->resolveGpuMonitor();
     impl_->applyComputeGpu();
+    impl_->applyFgGpu();
     connect(this,&QmlPlayerBridge::snapshotChanged,this,
         [this,ceiling=fgMaxMultiplier(),text=fgProviderText()]() mutable {
             const auto nextCeiling=fgMaxMultiplier();const auto nextText=fgProviderText();

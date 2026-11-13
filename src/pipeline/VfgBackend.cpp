@@ -109,9 +109,107 @@ struct VfgBackend::Impl {
         CUdeviceptr pointer=0;
         void* image=nullptr;
     };
+    // inputs/outputs are the CUDA-bound buffers, on the CUDA GPU's D3D12 device.
     std::array<Buffer,2> inputs;
     std::array<Buffer,kOutputs> outputs;
     gfx::D3D12DeviceContext* context=nullptr;
+    // Fork split mode: VFG on another GPU (gfx::frameGenerationAdapterLuid).
+    // The graph's device copies each input into a cross-adapter buffer; the
+    // remote queue copies it into the CUDA input, and the CUDA output back the
+    // same way. d3dIn/d3dOut are what the graph device's lists touch; without a
+    // remote GPU they alias inputs/outputs exactly as before.
+    std::unique_ptr<gfx::D3D12DeviceContext> remote;
+    std::array<Microsoft::WRL::ComPtr<ID3D12Resource>,2> d3dIn;
+    std::array<Microsoft::WRL::ComPtr<ID3D12Resource>,kOutputs> d3dOut;
+    struct Cross {Microsoft::WRL::ComPtr<ID3D12Heap> localHeap,remoteHeap;Microsoft::WRL::ComPtr<ID3D12Resource> local,remote;};
+    std::array<Cross,2> xIn;
+    std::array<Cross,kOutputs> xOut;
+    Microsoft::WRL::ComPtr<ID3D12Fence> toRemoteLocal,toRemoteRemote,fromRemoteRemote,fromRemoteLocal;
+    Microsoft::WRL::ComPtr<ID3D12CommandAllocator> copyAllocator;
+    std::array<Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>,2> copyIn;
+    std::array<Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>,kOutputs> copyOut;
+    std::array<bool,2> inputDirty{};
+    ID3D12Device* cudaDevice() const {return remote?remote->device():context->device();}
+    D3D12_RESOURCE_DESC bufferDesc(D3D12_RESOURCE_FLAGS flags=D3D12_RESOURCE_FLAG_NONE) const {
+        D3D12_RESOURCE_DESC desc{};desc.Dimension=D3D12_RESOURCE_DIMENSION_BUFFER;desc.Width=bytes;desc.Height=1;
+        desc.DepthOrArraySize=1;desc.MipLevels=1;desc.SampleDesc.Count=1;desc.Layout=D3D12_TEXTURE_LAYOUT_ROW_MAJOR;desc.Flags=flags;return desc;
+    }
+    // Heap created on the remote GPU, opened on the graph GPU (Microsoft's
+    // heterogeneous multi-adapter pattern); one placed buffer on each side.
+    bool makeCross(Cross& c){
+        D3D12_HEAP_DESC heap{};heap.SizeInBytes=(bytes+65535)&~uint64_t(65535);heap.Properties.Type=D3D12_HEAP_TYPE_DEFAULT;
+        heap.Flags=D3D12_HEAP_FLAG_SHARED|D3D12_HEAP_FLAG_SHARED_CROSS_ADAPTER;
+        if(!hr(remote->device()->CreateHeap(&heap,IID_PPV_ARGS(&c.remoteHeap)),"CreateHeap cross-adapter"))return false;
+        HANDLE handle=nullptr;
+        if(!hr(remote->device()->CreateSharedHandle(c.remoteHeap.Get(),nullptr,GENERIC_ALL,nullptr,&handle),"CreateSharedHandle cross-adapter heap"))return false;
+        const HRESULT opened=context->device()->OpenSharedHandle(handle,IID_PPV_ARGS(&c.localHeap));CloseHandle(handle);
+        if(!hr(opened,"OpenSharedHandle cross-adapter heap"))return false;
+        const auto desc=bufferDesc(D3D12_RESOURCE_FLAG_ALLOW_CROSS_ADAPTER);
+        return hr(remote->device()->CreatePlacedResource(c.remoteHeap.Get(),0,&desc,D3D12_RESOURCE_STATE_COMMON,nullptr,IID_PPV_ARGS(&c.remote)),"CreatePlacedResource cross-adapter remote")&&
+               hr(context->device()->CreatePlacedResource(c.localHeap.Get(),0,&desc,D3D12_RESOURCE_STATE_COMMON,nullptr,IID_PPV_ARGS(&c.local)),"CreatePlacedResource cross-adapter local");
+    }
+    static bool shareFence(ID3D12Device* owner,ID3D12Device* other,Microsoft::WRL::ComPtr<ID3D12Fence>& mine,Microsoft::WRL::ComPtr<ID3D12Fence>& theirs){
+        if(!hr(owner->CreateFence(0,D3D12_FENCE_FLAG_SHARED|D3D12_FENCE_FLAG_SHARED_CROSS_ADAPTER,IID_PPV_ARGS(&mine)),"CreateFence cross-adapter"))return false;
+        HANDLE handle=nullptr;
+        if(!hr(owner->CreateSharedHandle(mine.Get(),nullptr,GENERIC_ALL,nullptr,&handle),"CreateSharedHandle cross-adapter fence"))return false;
+        const HRESULT opened=other->OpenSharedHandle(handle,IID_PPV_ARGS(&theirs));CloseHandle(handle);
+        return hr(opened,"OpenSharedHandle cross-adapter fence");
+    }
+    bool recordCopy(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& list,ID3D12Resource* dst,ID3D12Resource* src){
+        // Recorded once, executed for every frame on the remote queue only, so
+        // executions never overlap. Buffers promote/decay from COMMON implicitly.
+        if(!hr(remote->device()->CreateCommandList(0,D3D12_COMMAND_LIST_TYPE_DIRECT,copyAllocator.Get(),nullptr,IID_PPV_ARGS(&list)),"CreateCommandList cross-adapter copy"))return false;
+        list->CopyBufferRegion(dst,0,src,0,bytes);
+        return hr(list->Close(),"Close cross-adapter copy");
+    }
+    bool initRemote(){
+        for(unsigned i=0;i<2;++i){
+            const auto desc=bufferDesc();D3D12_HEAP_PROPERTIES heap{};heap.Type=D3D12_HEAP_TYPE_DEFAULT;
+            if(!hr(context->device()->CreateCommittedResource(&heap,D3D12_HEAP_FLAG_NONE,&desc,D3D12_RESOURCE_STATE_COMMON,nullptr,IID_PPV_ARGS(&d3dIn[i])),"Create local VFG input")||
+               !makeCross(xIn[i]))return false;
+        }
+        for(unsigned i=0;i<2*(maxMultiplier-1);++i){if(!makeCross(xOut[i]))return false;d3dOut[i]=xOut[i].local;}
+        if(!shareFence(context->device(),remote->device(),toRemoteLocal,toRemoteRemote)||
+           !shareFence(remote->device(),context->device(),fromRemoteRemote,fromRemoteLocal)||
+           !hr(remote->device()->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,IID_PPV_ARGS(&copyAllocator)),"CreateCommandAllocator cross-adapter"))return false;
+        for(unsigned i=0;i<2;++i)if(!recordCopy(copyIn[i],inputs[i].resource.Get(),xIn[i].remote.Get()))return false;
+        for(unsigned i=0;i<2*(maxMultiplier-1);++i)if(!recordCopy(copyOut[i],xOut[i].remote.Get(),outputs[i].resource.Get()))return false;
+        return true;
+    }
+    // Same-GPU: the graph queue signals the CUDA producer fence directly.
+    // Split: graph queue -> cross fence -> remote queue copies the new inputs
+    // -> producer fence for CUDA.
+    bool signalProducer(uint64_t value){
+        if(!remote)return hr(context->directQueue()->Signal(producer.Get(),value),"signal VFG producer");
+        auto* queue=remote->directQueue();
+        if(!hr(context->directQueue()->Signal(toRemoteLocal.Get(),value),"signal VFG cross-adapter input")||
+           !hr(queue->Wait(toRemoteRemote.Get(),value),"remote wait VFG input"))return false;
+        for(unsigned i=0;i<2;++i)if(inputDirty[i]){ID3D12CommandList* list=copyIn[i].Get();queue->ExecuteCommandLists(1,&list);inputDirty[i]=false;}
+        return hr(queue->Signal(producer.Get(),value),"signal VFG producer");
+    }
+    // Same-GPU: the graph queue waits for CUDA. Split: the remote queue waits,
+    // copies the generated frame into the cross-adapter buffer, and signals
+    // the graph queue's wait.
+    bool waitCompletion(uint64_t value,unsigned slot){
+        if(!remote)return hr(context->directQueue()->Wait(completion.Get(),value),"queue wait VFG completion");
+        auto* queue=remote->directQueue();
+        if(!hr(queue->Wait(completion.Get(),value),"remote wait VFG completion"))return false;
+        ID3D12CommandList* list=copyOut[slot].Get();queue->ExecuteCommandLists(1,&list);
+        return hr(queue->Signal(fromRemoteRemote.Get(),value),"signal VFG cross-adapter output")&&
+               hr(context->directQueue()->Wait(fromRemoteLocal.Get(),value),"queue wait VFG cross-adapter output");
+    }
+    void releaseRemote(){
+        if(remote&&fromRemoteRemote&&signalValue){
+            // Teardown only: let the remote queue finish its copies.
+            const HANDLE event=CreateEventW(nullptr,FALSE,FALSE,nullptr);
+            if(event&&SUCCEEDED(fromRemoteRemote->SetEventOnCompletion(signalValue,event))&&WaitForSingleObject(event,2000)!=WAIT_OBJECT_0)
+                log::warn("vfg","remote GPU copies did not drain within 2 s at teardown");
+            if(event)CloseHandle(event);
+        }
+        for(auto& l:copyIn)l.Reset();for(auto& l:copyOut)l.Reset();copyAllocator.Reset();
+        toRemoteLocal.Reset();toRemoteRemote.Reset();fromRemoteRemote.Reset();fromRemoteLocal.Reset();
+        for(auto& c:xIn)c={};for(auto& c:xOut)c={};for(auto& r:d3dIn)r.Reset();for(auto& r:d3dOut)r.Reset();
+    }
     Microsoft::WRL::ComPtr<ID3D12Fence> producer,completion;
     CUexternalSemaphore inputSemaphore=nullptr,outputSemaphore=nullptr;
     CUcontext cudaContext=nullptr;CUstream stream=nullptr;CUdevice device=0;
@@ -232,21 +330,20 @@ struct VfgBackend::Impl {
     };
     bool importFence(ID3D12Fence* fence,CUexternalSemaphore& semaphore){
         HANDLE handle=nullptr;
-        if(!hr(context->device()->CreateSharedHandle(fence,nullptr,GENERIC_ALL,nullptr,&handle),"CreateSharedHandle fence"))return false;
+        if(!hr(cudaDevice()->CreateSharedHandle(fence,nullptr,GENERIC_ALL,nullptr,&handle),"CreateSharedHandle fence"))return false;
         CUDA_EXTERNAL_SEMAPHORE_HANDLE_DESC desc{};desc.type=CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE_D3D12_FENCE;desc.handle.win32.handle=handle;
         const auto code=cuImportExternalSemaphoreFn(&semaphore,&desc);CloseHandle(handle);
         return cu(code,"cuImportExternalSemaphore");
     }
     bool makeBuffer(Buffer& buffer,int pixelFormat,int componentType,unsigned layout){
         D3D12_HEAP_PROPERTIES heap{};heap.Type=D3D12_HEAP_TYPE_DEFAULT;
-        D3D12_RESOURCE_DESC desc{};desc.Dimension=D3D12_RESOURCE_DIMENSION_BUFFER;desc.Width=bytes;desc.Height=1;
-        desc.DepthOrArraySize=1;desc.MipLevels=1;desc.SampleDesc.Count=1;desc.Layout=D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-        if(!hr(context->device()->CreateCommittedResource(&heap,D3D12_HEAP_FLAG_SHARED,&desc,D3D12_RESOURCE_STATE_COMMON,nullptr,IID_PPV_ARGS(&buffer.resource)),"Create shared buffer"))return false;
+        const auto desc=bufferDesc();
+        if(!hr(cudaDevice()->CreateCommittedResource(&heap,D3D12_HEAP_FLAG_SHARED,&desc,D3D12_RESOURCE_STATE_COMMON,nullptr,IID_PPV_ARGS(&buffer.resource)),"Create shared buffer"))return false;
         HANDLE handle=nullptr;
-        if(!hr(context->device()->CreateSharedHandle(buffer.resource.Get(),nullptr,GENERIC_ALL,nullptr,&handle),"CreateSharedHandle buffer"))return false;
+        if(!hr(cudaDevice()->CreateSharedHandle(buffer.resource.Get(),nullptr,GENERIC_ALL,nullptr,&handle),"CreateSharedHandle buffer"))return false;
         CUDA_EXTERNAL_MEMORY_HANDLE_DESC imported{};
         imported.type=CU_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE;imported.handle.win32.handle=handle;
-        imported.size=context->device()->GetResourceAllocationInfo(0,1,&desc).SizeInBytes;imported.flags=CUDA_EXTERNAL_MEMORY_DEDICATED;
+        imported.size=cudaDevice()->GetResourceAllocationInfo(0,1,&desc).SizeInBytes;imported.flags=CUDA_EXTERNAL_MEMORY_DEDICATED;
         const auto code=cuImportExternalMemoryFn(&buffer.memory,&imported);CloseHandle(handle);
         if(!cu(code,"cuImportExternalMemory"))return false;
         CUDA_EXTERNAL_MEMORY_BUFFER_DESC mapped{};mapped.size=bytes;
@@ -288,7 +385,7 @@ struct VfgBackend::Impl {
     // Runs after the pair's current input was copied (COPY_DEST); leaves both
     // inputs in COMMON for CUDA and the result in PREDICATION for copyOutput().
     void recordShotChangeTest(ID3D12GraphicsCommandList* list,unsigned parity,bool compare){
-        auto* current=inputs[parity].resource.Get();auto* previous=inputs[1-parity].resource.Get();
+        auto* current=d3dIn[parity].Get();auto* previous=d3dIn[1-parity].Get();
         std::array<D3D12_RESOURCE_BARRIER,3> barriers{};
         transition(barriers[0],current,D3D12_RESOURCE_STATE_COPY_DEST,D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
         transition(barriers[1],previous,D3D12_RESOURCE_STATE_COMMON,D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
@@ -403,7 +500,7 @@ struct VfgBackend::Impl {
         const unsigned slot=parity+2*(sub-1);
         if(!asynchronous){
             const uint64_t value=++signalValue;
-            if(!hr(cpuCall(1,[&]{return context->directQueue()->Signal(producer.Get(),value);}),"signal VFG producer"))return false;
+            if(!cpuCall(1,[&]{return signalProducer(value);}))return false;
             const bool ok=cudaJob({parity,sub,multiplier,reset,inputRevision,value,fast});
             if(!ok){
                 failed.store(true);Current current(*this);
@@ -411,7 +508,7 @@ struct VfgBackend::Impl {
                 hr(completion->Signal(value),"release failed synchronous VFG job");
             }
             states[slot].store(ok?SubmissionState::Succeeded:SubmissionState::Failed);
-            if(!hr(cpuCall(11,[&]{return context->directQueue()->Wait(completion.Get(),value);}),"queue wait VFG completion"))return false;
+            if(!cpuCall(11,[&]{return waitCompletion(value,slot);}))return false;
             logCpu();return ok;
         }
         std::lock_guard lock(jobsMutex);
@@ -419,11 +516,11 @@ struct VfgBackend::Impl {
             log::error("vfg","bounded VFG submission rejected; no GPU wait queued");return false;
         }
         const uint64_t value=++signalValue;
-        if(!hr(cpuCall(1,[&]{return context->directQueue()->Signal(producer.Get(),value);}),"signal VFG producer"))return false;
+        if(!cpuCall(1,[&]{return signalProducer(value);}))return false;
         // Allocate the queue entry before adding a GPU dependency. Even a host
         // allocation exception cannot leave a wait with no job to signal it.
         jobs.push_back({parity,sub,multiplier,reset,inputRevision,value,fast});
-        if(!hr(cpuCall(11,[&]{return context->directQueue()->Wait(completion.Get(),value);}),"queue wait VFG completion")){
+        if(!cpuCall(11,[&]{return waitCompletion(value,slot);})){
             jobs.pop_back();return false;
         }
         states[slot].store(SubmissionState::Pending);++outstanding;jobsChanged.notify_one();return true;
@@ -441,7 +538,15 @@ bool VfgBackend::initialize(gfx::D3D12DeviceContext& context,const std::wstring&
     shutdown();
 #ifdef VEYRA_HAVE_CUDA_DRIVER_HEADERS
     auto& p=*impl_;
-    if(context.adapter().vendorId!=0x10DE||!runtimeAvailable(root)||!width||!height||multiplier<2||multiplier>FrameBatch::Capacity||quality>=engine::kVfgQualityCount||
+    if(const uint64_t fgLuid=gfx::frameGenerationAdapterLuid();fgLuid&&fgLuid!=context.adapter().luid){
+        p.remote=std::make_unique<gfx::D3D12DeviceContext>();
+        gfx::DeviceContextDesc remoteDesc{};remoteDesc.requiredLuid=fgLuid;remoteDesc.commandSlotCount=2;Status remoteStatus=Status::Ok;
+        if(!p.remote->initialize(remoteDesc,remoteStatus)){
+            log::warn("vfg",std::format("frame generation GPU luid={:016X} unavailable; VFG stays on the compute GPU",fgLuid));p.remote.reset();
+        }else log::info("vfg",std::format("split mode: VFG on second GPU luid={}, graph GPU luid={}",p.remote->adapter().luidString,context.adapter().luidString));
+    }
+    const auto& cudaAdapter=p.remote?p.remote->adapter():context.adapter();
+    if(cudaAdapter.vendorId!=0x10DE||!runtimeAvailable(root)||!width||!height||multiplier<2||multiplier>FrameBatch::Capacity||quality>=engine::kVfgQualityCount||
        (format!=DXGI_FORMAT_R8G8B8A8_UNORM&&format!=DXGI_FORMAT_R10G10B10A2_UNORM)){
         log::error("vfg","unsupported adapter/runtime/dimensions/multiplier/quality/encoding");return false;
     }
@@ -477,7 +582,7 @@ bool VfgBackend::initialize(gfx::D3D12DeviceContext& context,const std::wstring&
     bool matched=false;
     for(int i=0;i<count;++i){CUdevice device=0;uint64_t luid=0;unsigned node=0;
         if(!p.cu(p.cuDeviceGetFn(&device,i),"cuDeviceGet")||!p.cu(p.cuDeviceGetLuidFn(reinterpret_cast<char*>(&luid),&node,device),"cuDeviceGetLuid"))return false;
-        if(luid==context.adapter().luid&&node){p.device=device;matched=true;break;}
+        if(luid==cudaAdapter.luid&&node){p.device=device;matched=true;break;}
     }
     if(!matched){log::error("vfg","CUDA/D3D12 adapter LUID mismatch");return false;}
     int major=0,minor=0;
@@ -515,7 +620,7 @@ bool VfgBackend::initialize(gfx::D3D12DeviceContext& context,const std::wstring&
 #undef BIND_IMAGE
     unsigned version=0;if(!p.cv(p.getVersion(&version),"NvVFX_GetVersion"))return false;
     log::info("vfg",std::format("SDK version=0x{:08X} LUID={} compute={}.{} size={}x{} multiplier={} quality={} models={}{} shotChange={} async=1",
-        version,context.adapter().luidString,major,minor,width,height,multiplier,quality,p.effects[0].mode,
+        version,cudaAdapter.luidString,major,minor,width,height,multiplier,quality,p.effects[0].mode,
         p.mixed?std::format("+{} (middle subframe {} / others {})",p.effects[1].mode,p.effects[0].mode,p.effects[1].mode):std::string(),
         p.gpuShotChange?"gpu-pair-test":"sdk-automatic"));
     D3D12_RESOURCE_DESC texture{};texture.Dimension=D3D12_RESOURCE_DIMENSION_TEXTURE2D;texture.Width=width;texture.Height=height;texture.DepthOrArraySize=1;texture.MipLevels=1;texture.Format=format;texture.SampleDesc.Count=1;
@@ -532,8 +637,10 @@ bool VfgBackend::initialize(gfx::D3D12DeviceContext& context,const std::wstring&
     log::info("vfg",std::format("encoded format={} NvCV pixel={} component={} layout={} pitch={} sharedBytes={}",unsigned(format),pixelFormat,componentType,layout,p.footprint.Footprint.RowPitch,p.bytes*(2+2*(multiplier-1))));
     for(auto& buffer:p.inputs)if(!p.makeBuffer(buffer,pixelFormat,componentType,layout))return false;
     for(unsigned i=0;i<2*(multiplier-1);++i)if(!p.makeBuffer(p.outputs[i],pixelFormat,componentType,layout))return false;
-    if(!hr(context.device()->CreateFence(0,D3D12_FENCE_FLAG_SHARED,IID_PPV_ARGS(&p.producer)),"CreateFence producer")||
-       !hr(context.device()->CreateFence(0,D3D12_FENCE_FLAG_SHARED,IID_PPV_ARGS(&p.completion)),"CreateFence completion")||
+    if(p.remote){if(!p.initRemote())return false;}
+    else{for(unsigned i=0;i<2;++i)p.d3dIn[i]=p.inputs[i].resource;for(unsigned i=0;i<2*(multiplier-1);++i)p.d3dOut[i]=p.outputs[i].resource;}
+    if(!hr(p.cudaDevice()->CreateFence(0,D3D12_FENCE_FLAG_SHARED,IID_PPV_ARGS(&p.producer)),"CreateFence producer")||
+       !hr(p.cudaDevice()->CreateFence(0,D3D12_FENCE_FLAG_SHARED,IID_PPV_ARGS(&p.completion)),"CreateFence completion")||
        !p.importFence(p.producer.Get(),p.inputSemaphore)||!p.importFence(p.completion.Get(),p.outputSemaphore))return false;
     // With the GPU pair test the SDK's own detection is off: it made every
     // NvVFX_Run wait on the GPU (measured 2026-10-11: host 3.5 ms -> 0.13 ms per
@@ -555,7 +662,7 @@ bool VfgBackend::initialize(gfx::D3D12DeviceContext& context,const std::wstring&
     // It takes about 1.9 GB at 4K, as much again as the chosen model, which D3D's usage
     // may not count (RTX 5070, 2026-11-01), so 4.3 GB of the budget must be free.
     uint64_t memoryBudget=0,memoryUsage=0;
-    const bool fastFits=context.videoMemoryInfo(memoryBudget,memoryUsage)&&memoryBudget>memoryUsage+(uint64_t(4300)<<20);
+    const bool fastFits=(p.remote?*p.remote:context).videoMemoryInfo(memoryBudget,memoryUsage)&&memoryBudget>memoryUsage+(uint64_t(4300)<<20);
     if(fastFallback&&!p.mixed&&quality>0&&!fastFits)log::info("vfg",std::format("fast model not loaded: budgetMB={} usageMB={}",memoryBudget>>20,memoryUsage>>20));
     if(fastFallback&&!p.mixed&&quality>0&&fastFits){
         auto& e=p.effects[1];e.mode=quality-1;
@@ -590,7 +697,7 @@ bool VfgBackend::capture(ID3D12GraphicsCommandList* list,ID3D12Resource* texture
 #ifdef VEYRA_HAVE_CUDA_DRIVER_HEADERS
     auto& p=*impl_;if(!p.ready||p.failed.load()||!list||!texture||parity>1)return false;
     const auto desc=texture->GetDesc();if(desc.Width!=p.width||desc.Height!=p.height||desc.Format!=p.format)return false;
-    auto* buffer=p.inputs[parity].resource.Get();
+    auto* buffer=p.d3dIn[parity].Get();
     D3D12_RESOURCE_BARRIER barrier{};barrier.Type=D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;barrier.Transition={buffer,D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,D3D12_RESOURCE_STATE_COMMON,D3D12_RESOURCE_STATE_COPY_DEST};
     list->ResourceBarrier(1,&barrier);
     D3D12_TEXTURE_COPY_LOCATION src{};src.pResource=texture;src.Type=D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
@@ -598,6 +705,8 @@ bool VfgBackend::capture(ID3D12GraphicsCommandList* list,ID3D12Resource* texture
     list->CopyTextureRegion(&dst,0,0,0,&src,nullptr);
     if(p.gpuShotChange)p.recordShotChangeTest(list,parity,comparePrevious);
     else{std::swap(barrier.Transition.StateBefore,barrier.Transition.StateAfter);list->ResourceBarrier(1,&barrier);}
+    // Split mode: both paths above leave the input in COMMON; buffers promote.
+    if(p.remote){list->CopyBufferRegion(p.xIn[parity].local.Get(),0,buffer,0,p.bytes);p.inputDirty[parity]=true;}
     ++p.inputRevision;return true;
 #else
     (void)list;(void)texture;(void)parity;(void)comparePrevious;return false;
@@ -629,7 +738,7 @@ bool VfgBackend::copyOutput(ID3D12GraphicsCommandList* list,ID3D12Resource* text
 #ifdef VEYRA_HAVE_CUDA_DRIVER_HEADERS
     auto& p=*impl_;if(!p.ready||!list||!texture||slot>=2*(p.maxMultiplier-1))return false;
     const auto desc=texture->GetDesc();if(desc.Width!=p.width||desc.Height!=p.height||desc.Format!=p.format)return false;
-    auto* buffer=p.outputs[slot].resource.Get();
+    auto* buffer=p.d3dOut[slot].Get();
     D3D12_TEXTURE_COPY_LOCATION src{};src.pResource=buffer;src.Type=D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;src.PlacedFootprint=p.footprint;
     D3D12_TEXTURE_COPY_LOCATION dst{};dst.pResource=texture;dst.Type=D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
     if(!p.gpuShotChange){
@@ -641,7 +750,7 @@ bool VfgBackend::copyOutput(ID3D12GraphicsCommandList* list,ID3D12Resource* text
     // On a cut every subframe of the pair shows the current input B, as the
     // SDK's own detection did. The GPU picks the copy source by predication on
     // the pair test result: no readback, no CPU wait, no extra pass.
-    auto* current=p.inputs[slot%2].resource.Get();
+    auto* current=p.d3dIn[slot%2].Get();
     std::array<D3D12_RESOURCE_BARRIER,3> barriers{};UINT count=2;
     transition(barriers[0],buffer,D3D12_RESOURCE_STATE_COMMON,D3D12_RESOURCE_STATE_COPY_SOURCE);
     transition(barriers[1],current,D3D12_RESOURCE_STATE_COMMON,D3D12_RESOURCE_STATE_COPY_SOURCE);
@@ -679,6 +788,7 @@ void VfgBackend::shutdown(){
             // This is teardown, not per-frame synchronization. The graph owner
             // drains its direct queue before destroying shared staging buffers.
             if(p.stream)p.cu(p.cuStreamSynchronizeFn(p.stream),"teardown cuStreamSynchronize");
+            p.releaseRemote();
             for(auto& e:p.effects)if(e.handle){p.destroy(e.handle);e.handle=nullptr;log::info("vfg","NvVFX_DestroyEffect completed (void API)");}
             for(auto& b:p.outputs)p.releaseBuffer(b);for(auto& b:p.inputs)p.releaseBuffer(b);
             for(auto event:p.events)if(event)p.cu(p.cuEventDestroyFn(event),"cuEventDestroy profile");
@@ -689,7 +799,9 @@ void VfgBackend::shutdown(){
     }
     if(p.retained)p.cu(p.cuDevicePrimaryCtxReleaseFn(p.device),"cuDevicePrimaryCtxRelease");
     if(!p.ampereCompat.reset())log::error("vfg-ampere","cannot prove restoration; compatibility modules retained until process exit");
+    p.releaseRemote();
     p.producer.Reset();p.completion.Reset();
+    if(p.remote){p.remote->shutdown();p.remote.reset();}
     for(auto i=p.libraries.rbegin();i!=p.libraries.rend();++i)FreeLibrary(*i);
     impl_=std::make_unique<Impl>();
 #endif

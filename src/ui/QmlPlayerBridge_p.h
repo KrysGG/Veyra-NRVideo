@@ -603,6 +603,15 @@ struct QmlPlayerBridge::Impl {
         veyra::log::info("perf", std::format("compute gpu follow={} wanted={} using={}", follow, wanted.isEmpty() ? "auto" : wanted.toStdString(),
             follow ? chosen->name.toStdString() : "default order (highest-performance adapter)"));
     }
+    // Fork: 设置 -> "Frame generation GPU". Empty = same GPU as the compute work.
+    void applyFgGpu() {
+        const QString wanted = prefString("fgGpu");
+        const GpuAdapter* chosen = nullptr;
+        for (const auto& a : gpuAdapters) if (!wanted.isEmpty() && a.id == wanted) chosen = &a;
+        gfx::setFrameGenerationAdapterLuid(chosen ? (uint64_t(chosen->luidHigh) << 32 | chosen->luidLow) : 0);
+        veyra::log::info("perf", std::format("frame generation gpu wanted={} using={}", wanted.isEmpty() ? "same as compute" : wanted.toStdString(),
+            chosen ? chosen->name.toStdString() : "same as compute"));
+    }
     void resolveGpuMonitor() {
         const QString wanted = prefString("monitorGpu");
         const GpuAdapter* chosen = gpuAdapters.empty() ? nullptr : &gpuAdapters.front();

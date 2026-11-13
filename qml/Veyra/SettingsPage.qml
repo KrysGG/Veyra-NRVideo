@@ -747,6 +747,17 @@ VPage {
                             }
                         }
                         VRow {
+                            label: qsTr("Frame generation GPU")
+                            hint: qsTr("NVIDIA VFG only. Another GPU runs frame generation; frames are copied over PCIe. Reopen the video to apply")
+                            VSelect {
+                                objectName: "set-fg-gpu"
+                                implicitWidth: 230
+                                options: [{ id: "", label: qsTr("Same as compute GPU") }].concat(veyra.gpuMonitorChoices.slice(1))
+                                value: (options.find(o => o.id === (veyra.preferences.fgGpu || "")) || options[0]).label
+                                onPicked: id => veyra.setPreference("fgGpu", id)
+                            }
+                        }
+                        VRow {
                             label: qsTr("全屏显存增长保护")
                             hint: qsTr("检测异常增长时自动退出全屏；默认关闭")
                             VSwitch {

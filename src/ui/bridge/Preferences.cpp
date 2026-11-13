@@ -268,7 +268,7 @@ bool QmlPlayerBridge::setPreference(const QString& key, const QVariant& value) {
         static const QStringList languages{"auto", "zh-CN", "zh-TW", "en", "ja"};
         if (!languages.contains(v)) return false;
         stored = v;
-    } else if (key == QLatin1String("monitorGpu")) {
+    } else if (key == QLatin1String("monitorGpu") || key == QLatin1String("fgGpu")) {
         const QString v = value.toString();
         if (!v.isEmpty() && std::none_of(impl_->gpuAdapters.begin(), impl_->gpuAdapters.end(), [&](const auto& a) { return a.id == v; })) return false;
         stored = v;
@@ -335,6 +335,10 @@ void QmlPlayerBridge::applyPreference(const QString& key) {
             }
             impl_->exportQueue.refresh();
         }
+    }
+    else if (key == QLatin1String("fgGpu")) {
+        impl_->applyFgGpu();
+        if (impl_->snapshot.running) emit notice(tr("Frame generation GPU changed; reopen the video or capture to apply"), false);
     }
     else if (key == QLatin1String("monitorGpu") || key == QLatin1String("computeOnMonitorGpu")) {
         if (key == QLatin1String("monitorGpu")) { impl_->resolveGpuMonitor(); impl_->gpuUtil = -1.0; emit perfChanged(); }

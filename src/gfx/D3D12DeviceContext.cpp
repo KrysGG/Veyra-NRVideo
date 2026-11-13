@@ -133,6 +133,19 @@ uint64_t preferredAdapterLuid()
     return length && length < 32 ? std::wcstoull(text, nullptr, 16) : 0;
 }
 
+void setFrameGenerationAdapterLuid(uint64_t luid)
+{
+    if (!luid) { SetEnvironmentVariableW(L"VEYRA_FG_ADAPTER_LUID", nullptr); return; }
+    SetEnvironmentVariableW(L"VEYRA_FG_ADAPTER_LUID", std::format(L"{:016X}", luid).c_str());
+}
+
+uint64_t frameGenerationAdapterLuid()
+{
+    wchar_t text[32]{};
+    const DWORD length = GetEnvironmentVariableW(L"VEYRA_FG_ADAPTER_LUID", text, 32);
+    return length && length < 32 ? std::wcstoull(text, nullptr, 16) : 0;
+}
+
 bool D3D12DeviceContext::initialize(const DeviceContextDesc& desc, Status& status)
 {
     if (initialized_) {
