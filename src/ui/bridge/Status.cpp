@@ -275,6 +275,15 @@ bool QmlPlayerBridge::chainTotalMsKnown() const {
 // --- performance orbs and status light (#13) --------------------------------
 double QmlPlayerBridge::gpuUtilization() const { return std::max(0.0, impl_->gpuUtil.load()); }
 bool QmlPlayerBridge::gpuUtilizationKnown() const { return impl_->gpuUtil.load() >= 0.0; }
+QVariantList QmlPlayerBridge::gpuUsages() const {
+    QVariantList out;
+    std::lock_guard lock(impl_->gpuUtilsMutex);
+    for (const auto& a : impl_->gpuAdapters) {
+        const auto it = impl_->gpuUtils.find(uint64_t(a.luidHigh) << 32 | a.luidLow);
+        out << QVariantMap{{"name", a.name}, {"known", it != impl_->gpuUtils.end()}, {"value", it != impl_->gpuUtils.end() ? it->second : 0.0}};
+    }
+    return out;
+}
 QString QmlPlayerBridge::runStatus() const { return impl_->runStatus; }
 QString QmlPlayerBridge::runStatusLevel() const { return impl_->runLevel; }
 QString QmlPlayerBridge::runStatusDetail() const { return impl_->runDetail; }
@@ -305,6 +314,7 @@ void QmlPlayerBridge::startGpuSampler() {
             auto* items = reinterpret_cast<PDH_FMT_COUNTERVALUE_ITEM_W*>(buffer.data());
             if (PdhGetFormattedCounterArrayW(counter, PDH_FMT_DOUBLE, &bytes, &count, items) != ERROR_SUCCESS) continue;
             std::map<std::wstring, double> byType;
+            std::map<uint64_t, std::map<std::wstring, double>> byAdapter;
             // Instance names carry the adapter: pid_<n>_luid_0x<high>_0x<low>_phys_..._engtype_<type>.
             const uint64_t luid = impl->gpuMonitorLuid.load();
             const std::wstring luidKey = luid ? std::format(L"luid_0x{:08x}_0x{:08x}_", uint32_t(luid >> 32), uint32_t(luid)) : std::wstring{};
@@ -312,6 +322,12 @@ void QmlPlayerBridge::startGpuSampler() {
                 if (items[i].FmtValue.CStatus != PDH_CSTATUS_VALID_DATA && items[i].FmtValue.CStatus != PDH_CSTATUS_NEW_DATA) continue;
                 std::wstring name = items[i].szName ? items[i].szName : L"";
                 std::transform(name.begin(), name.end(), name.begin(), [](wchar_t ch) { return wchar_t(towlower(ch)); });
+                {
+                    const auto at = name.find(L"engtype_");
+                    unsigned high = 0, low = 0;
+                    if (const auto l = name.find(L"luid_0x"); l != std::wstring::npos && swscanf_s(name.c_str() + l, L"luid_0x%x_0x%x", &high, &low) == 2)
+                        byAdapter[uint64_t(high) << 32 | low][at == std::wstring::npos ? std::wstring{} : name.substr(at + 8)] += items[i].FmtValue.doubleValue;
+                }
                 if (!luidKey.empty() && name.find(luidKey) == std::wstring::npos) continue;
                 const auto at = name.find(L"engtype_");
                 byType[at == std::wstring::npos ? std::wstring{} : name.substr(at + 8)] += items[i].FmtValue.doubleValue;
@@ -319,6 +335,13 @@ void QmlPlayerBridge::startGpuSampler() {
             double busiest = 0;
             for (const auto& [type, value] : byType) busiest = std::max(busiest, value);
             impl->gpuUtil = std::clamp(busiest, 0.0, 100.0);
+            std::map<uint64_t, double> perAdapter;
+            for (const auto& [adapter, types] : byAdapter) {
+                double top = 0;
+                for (const auto& [type, value] : types) top = std::max(top, value);
+                perAdapter[adapter] = std::clamp(top, 0.0, 100.0);
+            }
+            { std::lock_guard lock(impl->gpuUtilsMutex); impl->gpuUtils = std::move(perAdapter); }
         }
         PdhCloseQuery(query);
     });

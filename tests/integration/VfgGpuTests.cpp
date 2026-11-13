@@ -86,6 +86,27 @@ int wmain(int argc,wchar_t** argv){
                 transition(l,textures[p].Get(),D3D12_RESOURCE_STATE_COPY_SOURCE,D3D12_RESOURCE_STATE_COMMON);
                 if(!ring.submitAndSignal(slot))return 2;
             }
+            // Fork: VEYRA_TEST_VFG_BENCH=1 times steady 2X pairs (capture + Run + copy
+            // back, CPU wait per pair) so same-GPU and split (VEYRA_FG_ADAPTER_LUID) compare.
+            if(GetEnvironmentVariableW(L"VEYRA_TEST_VFG_BENCH",nullptr,0)>0&&format==DXGI_FORMAT_R8G8B8A8_UNORM){
+                std::vector<double> samples;
+                for(unsigned i=0;i<140;++i){
+                    const unsigned p=i&1;const auto start=std::chrono::steady_clock::now();
+                    uint32_t slot=0;auto* l=ring.acquireNext(slot,st);if(!l)return 2;
+                    transition(l,textures[p].Get(),D3D12_RESOURCE_STATE_COMMON,D3D12_RESOURCE_STATE_COPY_SOURCE);
+                    if(!vfg.capture(l,textures[p].Get(),p,true))return 4;
+                    transition(l,textures[p].Get(),D3D12_RESOURCE_STATE_COPY_SOURCE,D3D12_RESOURCE_STATE_COMMON);
+                    if(!ring.submitAndSignal(slot)||!vfg.generate(p,1,2,false))return 4;
+                    l=ring.acquireNext(slot,st);if(!l)return 2;
+                    transition(l,output.Get(),D3D12_RESOURCE_STATE_COMMON,D3D12_RESOURCE_STATE_COPY_DEST);
+                    if(!vfg.copyOutput(l,output.Get(),p))return 4;
+                    transition(l,output.Get(),D3D12_RESOURCE_STATE_COPY_DEST,D3D12_RESOURCE_STATE_COMMON);
+                    if(!ring.submitAndSignal(slot)||!ring.waitIdle())return 2;
+                    if(i>=20)samples.push_back(std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-start).count());
+                }
+                std::sort(samples.begin(),samples.end());double sum=0;for(double s:samples)sum+=s;
+                std::printf("VFG_BENCH size=%ux%u quality=%u pairs=%zu meanMs=%.3f p50Ms=%.3f p95Ms=%.3f\n",w,h,quality,samples.size(),sum/samples.size(),samples[samples.size()/2],samples[samples.size()*95/100]);
+            }
             for(unsigned multiplier=2;multiplier<=8;++multiplier){
                 const auto start=std::chrono::steady_clock::now();
                 for(unsigned sub=1;sub<multiplier;++sub){

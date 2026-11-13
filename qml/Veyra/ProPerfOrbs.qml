@@ -18,7 +18,23 @@ RowLayout {
         label: qsTr("处理耗时")
         tip: qsTr("增强链总耗时（最近一秒平均，与 1.4.4 相同口径），环 = 占源帧预算") + (veyra.stageBudgetMs > 0 ? " " + veyra.stageBudgetMs.toFixed(1) + " ms" : "") + qsTr(" 的比例")
     }
+    // Fork: one orb per GPU (GPU 1, GPU 2...) when more than one is present.
+    Repeater {
+        model: veyra.gpuUsages.length > 1 ? veyra.gpuUsages : []
+        ProPerfOrb {
+            required property var modelData
+            required property int index
+            size: parent.size
+            showLabel: parent.showLabels
+            known: modelData.known
+            fraction: modelData.value / 100
+            value: known ? Math.round(modelData.value) + "%" : "—"
+            label: "GPU " + (index + 1)
+            tip: modelData.name + qsTr(": busiest engine type, sampled every second (Task Manager's GPU counters)")
+        }
+    }
     ProPerfOrb {
+        visible: veyra.gpuUsages.length <= 1
         size: parent.size
         showLabel: parent.showLabels
         known: veyra.gpuUtilizationKnown

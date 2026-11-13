@@ -535,6 +535,9 @@ struct QmlPlayerBridge::Impl {
     struct GpuAdapter { QString id, name; uint32_t luidHigh = 0, luidLow = 0; };
     std::vector<GpuAdapter> gpuAdapters;
     std::atomic<uint64_t> gpuMonitorLuid{0};
+    // Fork: busiest-engine % per adapter LUID, for the per-GPU orbs.
+    std::mutex gpuUtilsMutex;
+    std::map<uint64_t, double> gpuUtils;
     QString gpuMonitorName;
     // LUIDs that have "GPU Engine" counter instances. DXGI can list one physical GPU
     // twice (a virtual display driver such as GameViewer's exposes a second adapter
