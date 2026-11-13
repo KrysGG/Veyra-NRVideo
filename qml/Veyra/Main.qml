@@ -70,6 +70,7 @@ Window {
     }
     Binding { target: Theme; property: "reduced"; value: veyra.reducedMotion || root.test.reducedMotion === true }
     Binding { target: Theme; property: "accentName"; value: veyra.preferences.accent || "orange" }
+    Binding { target: Theme; property: "themeName"; value: root.test.theme || veyra.preferences.theme || "default" }
     Binding { target: Theme; property: "backdropLevel"; value: veyra.preferences.backdrop !== undefined ? veyra.preferences.backdrop : 1 }
 
     // Cinema geometry: the main window ends at the picture. The independent pill

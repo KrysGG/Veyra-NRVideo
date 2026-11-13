@@ -275,6 +275,31 @@ bool QmlPlayerBridge::chainTotalMsKnown() const {
 // --- performance orbs and status light (#13) --------------------------------
 double QmlPlayerBridge::gpuUtilization() const { return std::max(0.0, impl_->gpuUtil.load()); }
 bool QmlPlayerBridge::gpuUtilizationKnown() const { return impl_->gpuUtil.load() >= 0.0; }
+QString QmlPlayerBridge::fgGpuName() const {
+    const QString wanted = impl_->prefString("fgGpu");
+    for (const auto& a : impl_->gpuAdapters) if (a.id == wanted) return a.name;
+    return tr("the second GPU");
+}
+// Plain-language state of the frame generation GPU choice for the settings rows.
+QString QmlPlayerBridge::fgGpuStatus() const {
+    const QString wanted = impl_->prefString("fgGpu");
+    if (wanted.isEmpty()) return tr("Frame generation runs on the super resolution GPU.");
+    bool present = false;
+    for (const auto& a : impl_->gpuAdapters) present = present || a.id == wanted;
+    if (!present) return tr("The saved frame generation GPU is not installed. Frame generation runs on the super resolution GPU.");
+    if (impl_->computeLuid && gfx::frameGenerationAdapterLuid() == impl_->computeLuid)
+        return tr("Same GPU as super resolution: no split.");
+    switch (gfx::frameGenerationSplitState()) {
+    case gfx::FgSplitState::Active:
+        return tr("Active: NVIDIA VFG runs on %1; the other GPU never waits for it.").arg(fgGpuName());
+    case gfx::FgSplitState::Fallback: {
+        const auto why = QString::fromStdString(gfx::frameGenerationSplitDetail());
+        return tr("Fell back to the super resolution GPU") + (why.isEmpty() ? QString() : QStringLiteral(": ") + why) + QStringLiteral(".");
+    }
+    default:
+        return tr("Ready: %1 takes over NVIDIA VFG when a source opens. Use 中 or 中+低 quality, or turn on VFG 自动调控.").arg(fgGpuName());
+    }
+}
 QVariantList QmlPlayerBridge::gpuUsages() const {
     QVariantList out;
     std::lock_guard lock(impl_->gpuUtilsMutex);
@@ -509,6 +534,12 @@ void QmlPlayerBridge::updateRunStatus() {
                 detail << tr("屏幕 %1 Hz 最多显示约 %2X").arg(refresh, 0, 'f', 0).arg(std::max(1, int(refresh / source)));
         }
         if (s.nominalSourceFps > 0.01) detail << tr("源 %1 fps").arg(s.nominalSourceFps, 0, 'f', 2);
+        // Fork: where frame generation actually runs.
+        if (s.fgActive || s.applied.frameGenerationBackend == engine::FrameGenerationBackend::Vfg) {
+            const auto split = gfx::frameGenerationSplitState();
+            if (split == gfx::FgSplitState::Active) detail << tr("FG on %1").arg(fgGpuName());
+            else if (split == gfx::FgSplitState::Fallback) detail << tr("FG on SR GPU (fallback)");
+        }
         if(active&&f.rateWindowReady&&rate.targetFps>0)detail<<tr("有效目标 %1 fps").arg(rate.targetFps,0,'f',1);
         const auto autoState=nrAutoStatus();if(!autoState.isEmpty())detail<<autoState;
     }
@@ -524,11 +555,14 @@ void QmlPlayerBridge::updateRunStatus() {
     } else if (!s.running && !i.frameTimes.empty()) i.frameTimes.clear();
     const QString text = detail.join(QStringLiteral(" · "));
     const double gpu = i.gpuUtil.load();
+    double gpuSum = 0;
+    { std::lock_guard lock(i.gpuUtilsMutex); for (const auto& [luid, value] : i.gpuUtils) gpuSum += value * double(luid % 7 + 1); }
+    const QString fgStatus = fgGpuStatus();
     const double target=active&&f.rateWindowReady&&rate.targetFps>0?rate.targetFps:-1;
-    const bool changed = ratioChanged || active || status != i.runStatus || level != i.runLevel || text != i.runDetail || options!=i.runOptions || std::abs(target-i.effectiveOutputFps)>.05 || std::abs(gpu - i.gpuPublished) > 0.05 ||
+    const bool changed = ratioChanged || active || status != i.runStatus || level != i.runLevel || text != i.runDetail || options!=i.runOptions || std::abs(target-i.effectiveOutputFps)>.05 || std::abs(gpu - i.gpuPublished) > 0.05 || std::abs(gpuSum - i.gpuSumPublished) > 0.05 || fgStatus != i.fgStatusPublished ||
                          fgHint != i.fgDisplayHint || vrrLevel != i.vrrState || displayChecking != i.displayChecking ||
                          hdr != i.displayHdr || std::abs(refreshHz - i.displayRefreshHz) > .01;
-    i.runStatus = status; i.runLevel = level; i.runDetail = text; i.gpuPublished = gpu;
+    i.runStatus = status; i.runLevel = level; i.runDetail = text; i.gpuPublished = gpu; i.gpuSumPublished = gpuSum; i.fgStatusPublished = fgStatus;
     i.runOptions=options;i.effectiveOutputFps=target;i.fgDisplayHint=fgHint;i.vrrState=vrrLevel;i.displayChecking=displayChecking;
     i.displayHdr=hdr;i.displayRefreshHz=refreshHz;
     if (changed) emit perfChanged();

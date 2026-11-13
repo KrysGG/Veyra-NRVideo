@@ -35,6 +35,20 @@ int wmain(int argc,wchar_t** argv){
     gfx::D3D12DeviceContext ctx;Status st=Status::Ok;gfx::DeviceContextDesc d{};d.enableDebugLayer=true;d.commandSlotCount=6;
     if(!ctx.initialize(d,st))return 2;
     gfx::CommandSlotRing ring;if(!ring.initialize(ctx.device(),ctx.directQueue(),ctx.fence(),ctx.fenceEvent(),6,st))return 2;
+    // Fork: in split mode (VEYRA_FG_ADAPTER_LUID) the generated copy runs on VFG's
+    // consumer queue; the test's own list is then ordered after it by a queue wait.
+    auto copyOut=[&](pipeline::VfgBackend& v,ID3D12GraphicsCommandList* l,ID3D12Resource* tex,unsigned s)->bool{
+        if(!v.split())return v.copyOutput(l,tex,s);
+        // The test reuses one output texture: earlier graph-queue reads finish first
+        // (the engine gets the same guarantee from its lease/slot reuse checks).
+        if(!ring.waitIdle())return false;
+        auto* c=v.beginConsumer();if(!c)return false;
+        transition(c,tex,D3D12_RESOURCE_STATE_COMMON,D3D12_RESOURCE_STATE_COPY_DEST);
+        if(!v.copyOutput(c,tex,s))return false;
+        transition(c,tex,D3D12_RESOURCE_STATE_COPY_DEST,D3D12_RESOURCE_STATE_COMMON);
+        ID3D12Fence* f=nullptr;uint64_t value=0;if(!v.submitConsumer(s%2,f,value))return false;
+        return SUCCEEDED(ctx.directQueue()->Wait(f,value));
+    };
     Microsoft::WRL::ComPtr<ID3D12InfoQueue> debug;ctx.device()->QueryInterface(IID_PPV_ARGS(&debug));
     for(auto format:{DXGI_FORMAT_R8G8B8A8_UNORM,DXGI_FORMAT_R10G10B10A2_UNORM}){
         std::array<Microsoft::WRL::ComPtr<ID3D12Resource>,2> textures;
@@ -99,7 +113,7 @@ int wmain(int argc,wchar_t** argv){
                     if(!ring.submitAndSignal(slot)||!vfg.generate(p,1,2,false))return 4;
                     l=ring.acquireNext(slot,st);if(!l)return 2;
                     transition(l,output.Get(),D3D12_RESOURCE_STATE_COMMON,D3D12_RESOURCE_STATE_COPY_DEST);
-                    if(!vfg.copyOutput(l,output.Get(),p))return 4;
+                    if(!copyOut(vfg,l,output.Get(),p))return 4;
                     transition(l,output.Get(),D3D12_RESOURCE_STATE_COPY_DEST,D3D12_RESOURCE_STATE_COMMON);
                     if(!ring.submitAndSignal(slot)||!ring.waitIdle())return 2;
                     if(i>=20)samples.push_back(std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-start).count());
@@ -113,7 +127,7 @@ int wmain(int argc,wchar_t** argv){
                     if(!vfg.generate(1,sub,multiplier,false)){std::puts("FAIL native VFG asynchronous Run");return 4;}
                     uint32_t slot=0;auto* l=ring.acquireNext(slot,st);if(!l)return 2;
                     transition(l,output.Get(),D3D12_RESOURCE_STATE_COMMON,D3D12_RESOURCE_STATE_COPY_DEST);
-                    check(vfg.copyOutput(l,output.Get(),1+2*(sub-1)),"consume native output on GPU");
+                    check(copyOut(vfg,l,output.Get(),1+2*(sub-1)),"consume native output on GPU");
                     transition(l,output.Get(),D3D12_RESOURCE_STATE_COPY_DEST,D3D12_RESOURCE_STATE_COPY_SOURCE);
                     D3D12_TEXTURE_COPY_LOCATION src{};src.pResource=output.Get();src.Type=D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
                     D3D12_TEXTURE_COPY_LOCATION dst{};dst.pResource=readback.Get();dst.Type=D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;dst.PlacedFootprint=fp;dst.PlacedFootprint.Offset=(sub-1)*bytes;
@@ -151,7 +165,7 @@ int wmain(int argc,wchar_t** argv){
             // the next run, and retain both imported buffers for normal pairs.
             check(vfg.generate(1,1,2,true),"manual shot change native call");
             uint32_t slot=0;auto* l=ring.acquireNext(slot,st);if(!l)return 2;
-            transition(l,output.Get(),D3D12_RESOURCE_STATE_COMMON,D3D12_RESOURCE_STATE_COPY_DEST);check(vfg.copyOutput(l,output.Get(),1),"cut output GPU copy");
+            transition(l,output.Get(),D3D12_RESOURCE_STATE_COMMON,D3D12_RESOURCE_STATE_COPY_DEST);check(copyOut(vfg,l,output.Get(),1),"cut output GPU copy");
             transition(l,output.Get(),D3D12_RESOURCE_STATE_COPY_DEST,D3D12_RESOURCE_STATE_COPY_SOURCE);
             D3D12_TEXTURE_COPY_LOCATION src{};src.pResource=output.Get();src.Type=D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
             D3D12_TEXTURE_COPY_LOCATION dst{};dst.pResource=readback.Get();dst.Type=D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;dst.PlacedFootprint=fp;
@@ -178,7 +192,7 @@ int wmain(int argc,wchar_t** argv){
                     check(vfg.generate(parity,sub,multiplier,false),"resume full group after cut/reduced group");
                     auto* l=ring.acquireNext(slot,st);if(!l)return 2;
                     transition(l,output.Get(),D3D12_RESOURCE_STATE_COMMON,D3D12_RESOURCE_STATE_COPY_DEST);
-                    check(vfg.copyOutput(l,output.Get(),parity+2*(sub-1)),"refreshed pair output copy");
+                    check(copyOut(vfg,l,output.Get(),parity+2*(sub-1)),"refreshed pair output copy");
                     transition(l,output.Get(),D3D12_RESOURCE_STATE_COPY_DEST,D3D12_RESOURCE_STATE_COPY_SOURCE);
                     D3D12_TEXTURE_COPY_LOCATION from{};from.pResource=output.Get();from.Type=D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
                     D3D12_TEXTURE_COPY_LOCATION to{};to.pResource=readback.Get();to.Type=D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;to.PlacedFootprint=fp;to.PlacedFootprint.Offset=(sub-1)*bytes;
@@ -219,7 +233,7 @@ int wmain(int argc,wchar_t** argv){
                 if(!vfg.generate(1,sub,4,false))return false;
                 auto* l=ring.acquireNext(slot,st);if(!l)return false;
                 transition(l,output.Get(),D3D12_RESOURCE_STATE_COMMON,D3D12_RESOURCE_STATE_COPY_DEST);
-                if(!vfg.copyOutput(l,output.Get(),1+2*(sub-1)))return false;
+                if(!copyOut(vfg,l,output.Get(),1+2*(sub-1)))return false;
                 transition(l,output.Get(),D3D12_RESOURCE_STATE_COPY_DEST,D3D12_RESOURCE_STATE_COPY_SOURCE);
                 D3D12_TEXTURE_COPY_LOCATION from{};from.pResource=output.Get();from.Type=D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
                 D3D12_TEXTURE_COPY_LOCATION to{};to.pResource=readback.Get();to.Type=D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;to.PlacedFootprint=fp;to.PlacedFootprint.Offset=readbackSlot*bytes;

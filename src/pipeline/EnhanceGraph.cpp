@@ -3889,17 +3889,29 @@ bool EnhanceGraph::process(const AVFrame* frame, double ptsMs, bool reset, Frame
             // GPU producer -> CUDA interpolation -> GPU consumer. No per-frame
             // CPU fence waits/readback; the bounded command ring owns reuse.
             if(!vfgBackend_->generate(parity,sub,resetFg?2u:outputMultiplier,resetFg,out.fgFast)){failedBackend_=engine::FailedBackend::Fg;return false;}
-            auto* flist=ring_.acquireNext(slot,st);if(!flist)return false;
+            // Split (VFG on a second GPU): this copy runs on VFG's own queue so
+            // the graph queue continues with the next frame instead of waiting.
+            const bool split=vfgBackend_->split();
+            auto* flist=split?vfgBackend_->beginConsumer():ring_.acquireNext(slot,st);
+            if(!flist){if(split)failedBackend_=engine::FailedBackend::Fg;return false;}
             tracker_.transition(flist,genFrame_[generatedSlot].Get(),D3D12_RESOURCE_STATE_COPY_DEST);
             if(!vfgBackend_->copyOutput(flist,genFrame_[generatedSlot].Get(),generatedSlot)){failedBackend_=engine::FailedBackend::Fg;return false;}
             tracker_.transition(flist,genFrame_[generatedSlot].Get(),D3D12_RESOURCE_STATE_COMMON);
             const auto timingStage=GpuStage(unsigned(GpuStage::Fg1)+sub-1);gpuTimer_.mark(flist,timingStage,true);
             if(sub<fgCalls)gpuTimer_.mark(flist,GpuStage(unsigned(GpuStage::Fg1)+sub));
             else{gpuTimer_.mark(flist,GpuStage::FgBatch,true);gpuTimer_.resolve(flist);}
-            if(!submitGraph(slot))return false;
-            if(sub==fgCalls)gpuTimer_.submitted(ring_.lastSignaledValue());
+            if(split){
+                ID3D12Fence* consumer=nullptr;uint64_t consumerValue=0;
+                if(!vfgBackend_->submitConsumer(parity,consumer,consumerValue)){failedBackend_=engine::FailedBackend::Fg;return false;}
+                if(sub==fgCalls)gpuTimer_.submitted(consumerValue,consumer);
+                out.genFenceValue=consumerValue;out.genFenceObject=consumer;
+            }else{
+                if(!submitGraph(slot))return false;
+                if(sub==fgCalls)gpuTimer_.submitted(ring_.lastSignaledValue());
+                out.genFenceValue=ring_.lastSignaledValue();out.genFenceObject=context_.fence();
+            }
             ++out.fgEvaluated;out.hasGenerated=!resetFg;out.genSlot=parity;
-            out.genFenceValue=ring_.lastSignaledValue();out.genFenceObject=context_.fence();out.generatedPtsMs=(prevPtsMs_+ptsMs)*0.5;
+            out.generatedPtsMs=(prevPtsMs_+ptsMs)*0.5;
             if(out.hasGenerated){
                 ++metrics_.fgSubmittedCandidates;
                 BatchFrame f;f.identity=out.batch.identity;f.kind=FrameKind::Generated;f.validity=GenerationValidity::Pending;f.subframe=sub;

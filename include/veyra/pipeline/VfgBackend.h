@@ -48,8 +48,19 @@ public:
     // D3D12_RESOURCE_STATE_PREDICATION; uint32 layout: cut flag per parity at
     // 0/2, last SAD/histogram/compare per parity at 4/8, cut count at 12.
     ID3D12Resource* shotChangeResultsForTest() const;
+    // Fork split mode: VFG runs on gfx::frameGenerationAdapterLuid(). The graph
+    // records the generated-frame copy into beginConsumer()'s list instead of
+    // its own ring; submitConsumer() runs it on VFG's high-priority queue on the
+    // graph GPU after the second GPU finishes, and returns the fence the frame
+    // is ready on. The graph queue itself never waits on the second GPU.
+    bool split() const;
+    ID3D12GraphicsCommandList* beginConsumer();
+    bool submitConsumer(unsigned parity,ID3D12Fence*& fence,uint64_t& value);
     void shutdown();
 private:
+    bool initializeOnce(gfx::D3D12DeviceContext&,const std::wstring& runtimeRoot,
+                        unsigned width,unsigned height,DXGI_FORMAT,unsigned multiplier,unsigned quality,
+                        bool asynchronousSubmission,bool fastFallback,bool allowSplit);
     struct Impl;
     std::unique_ptr<Impl> impl_;
 };

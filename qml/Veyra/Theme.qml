@@ -7,23 +7,29 @@ pragma Singleton
 import QtQuick
 
 QtObject {
+    // Fork: 设置 → Themes. "default" is the approved design; "vice" is an
+    // original neon-sunset colourway (night indigo, hot pink, neon teal).
+    property string themeName: "default"
+    readonly property bool vice: themeName === "vice"
+    readonly property string backdropSource: vice ? "backdrop-vice.png" : backdropLevel === 2 ? "backdrop-strong.png" : "backdrop.png"
+
     // --- surfaces (app.css .vy) -------------------------------------------
-    readonly property color card: "#131317"
-    readonly property color card2: "#19191E"
-    readonly property color card3: "#24242A"
-    readonly property color popover: "#1B1B20"
-    readonly property color dialog: "#141418"
-    readonly property color stroke: Qt.rgba(1, 1, 1, 0.07)
-    readonly property color stroke2: Qt.rgba(1, 1, 1, 0.13)
+    readonly property color card: vice ? "#150E24" : "#131317"
+    readonly property color card2: vice ? "#1B1230" : "#19191E"
+    readonly property color card3: vice ? "#2A1C46" : "#24242A"
+    readonly property color popover: vice ? "#1A1130" : "#1B1B20"
+    readonly property color dialog: vice ? "#140C22" : "#141418"
+    readonly property color stroke: vice ? Qt.rgba(1, 0.62, 0.9, 0.10) : Qt.rgba(1, 1, 1, 0.07)
+    readonly property color stroke2: vice ? Qt.rgba(1, 0.62, 0.9, 0.18) : Qt.rgba(1, 1, 1, 0.13)
     // The app background: a radial gradient in the prototype, approximated here
     // with the three stops it interpolates between.
-    readonly property color bgOuter: "#070709"
-    readonly property color bgMid: "#0C0C10"
-    readonly property color bgInner: "#17171C"
+    readonly property color bgOuter: vice ? "#0A0616" : "#070709"
+    readonly property color bgMid: vice ? "#100A1E" : "#0C0C10"
+    readonly property color bgInner: vice ? "#1C1230" : "#17171C"
     readonly property color videoBlack: "#000000"
 
     // --- text -------------------------------------------------------------
-    readonly property color t1: "#F3F3F5"
+    readonly property color t1: vice ? "#F8F1FF" : "#F3F3F5"
     readonly property color t2: Qt.rgba(0.953, 0.953, 0.961, 0.62)
     readonly property color t3: Qt.rgba(0.953, 0.953, 0.961, 0.38)
 
@@ -31,19 +37,19 @@ QtObject {
     // 设置 → 强调色: orange (default) or the design's .accent-white variant.
     property string accentName: "orange"
     readonly property bool accentWhite: accentName === "white"
-    readonly property color accent: accentWhite ? "#F3F3F5" : "#FF8A3D"
-    readonly property color accentInk: accentWhite ? "#0B0B0E" : "#1B0E04"
-    readonly property color accentSoft: accentWhite ? Qt.rgba(1, 1, 1, 0.1) : Qt.rgba(1, 0.541, 0.239, 0.14)
-    readonly property color accentGlow: accentWhite ? Qt.rgba(1, 1, 1, 0.35) : Qt.rgba(1, 0.541, 0.239, 0.35)
+    readonly property color accent: accentWhite ? "#F3F3F5" : vice ? "#FF3EA5" : "#FF8A3D"
+    readonly property color accentInk: accentWhite ? "#0B0B0E" : vice ? "#22041A" : "#1B0E04"
+    readonly property color accentSoft: accentWhite ? Qt.rgba(1, 1, 1, 0.1) : vice ? Qt.rgba(1, 0.243, 0.647, 0.16) : Qt.rgba(1, 0.541, 0.239, 0.14)
+    readonly property color accentGlow: accentWhite ? Qt.rgba(1, 1, 1, 0.35) : vice ? Qt.rgba(1, 0.243, 0.647, 0.42) : Qt.rgba(1, 0.541, 0.239, 0.35)
     // 设置 → 背景渐变强度: 0 none, 1 light (the design default), 2 medium.
     property int backdropLevel: 1
-    readonly property color ok: "#3DDC84"
-    readonly property color okGlow: Qt.rgba(0.239, 0.863, 0.518, 0.16)
-    readonly property color warn: "#F5C84B"
-    readonly property color warnGlow: Qt.rgba(0.961, 0.784, 0.294, 0.16)
+    readonly property color ok: vice ? "#2EF2D6" : "#3DDC84"
+    readonly property color okGlow: vice ? Qt.rgba(0.18, 0.95, 0.84, 0.18) : Qt.rgba(0.239, 0.863, 0.518, 0.16)
+    readonly property color warn: vice ? "#FFB04A" : "#F5C84B"
+    readonly property color warnGlow: vice ? Qt.rgba(1, 0.69, 0.29, 0.18) : Qt.rgba(0.961, 0.784, 0.294, 0.16)
     readonly property color err: "#FF5D5D"
     readonly property color errGlow: Qt.rgba(1, 0.365, 0.365, 0.16)
-    readonly property color exp: "#B79BFF"
+    readonly property color exp: vice ? "#A87BFF" : "#B79BFF"
     readonly property color expSoft: Qt.rgba(0.718, 0.608, 1.0, 0.14)
 
     // --- geometry (--r-win / --r-card / --r-ctl) --------------------------

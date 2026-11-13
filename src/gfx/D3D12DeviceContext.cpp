@@ -6,6 +6,7 @@
 #pragma comment(lib, "wevtapi.lib")
 
 #include <format>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -144,6 +145,31 @@ uint64_t frameGenerationAdapterLuid()
     wchar_t text[32]{};
     const DWORD length = GetEnvironmentVariableW(L"VEYRA_FG_ADAPTER_LUID", text, 32);
     return length && length < 32 ? std::wcstoull(text, nullptr, 16) : 0;
+}
+
+namespace {
+std::mutex g_fgSplitMutex;
+FgSplitState g_fgSplitState = FgSplitState::Off;
+std::string g_fgSplitDetail;
+}
+
+void setFrameGenerationSplitStatus(FgSplitState state, std::string detail)
+{
+    std::lock_guard lock(g_fgSplitMutex);
+    g_fgSplitState = state;
+    g_fgSplitDetail = std::move(detail);
+}
+
+FgSplitState frameGenerationSplitState()
+{
+    std::lock_guard lock(g_fgSplitMutex);
+    return g_fgSplitState;
+}
+
+std::string frameGenerationSplitDetail()
+{
+    std::lock_guard lock(g_fgSplitMutex);
+    return g_fgSplitDetail;
 }
 
 bool D3D12DeviceContext::initialize(const DeviceContextDesc& desc, Status& status)

@@ -220,6 +220,10 @@ bool QmlPlayerBridge::setPreference(const QString& key, const QVariant& value) {
         bool ok = false; const double v = value.toDouble(&ok);
         if (!ok || !(qFuzzyCompare(v, 1.0) || qFuzzyCompare(v, 0.1) || qFuzzyCompare(v, 0.01))) return false;
         stored = v;
+    } else if (key == QLatin1String("theme")) {
+        const QString v = value.toString();
+        if (v != QLatin1String("default") && v != QLatin1String("vice")) return false;
+        stored = v;
     } else if (key == QLatin1String("accent")) {
         const QString v = value.toString();
         if (v != QLatin1String("orange") && v != QLatin1String("white")) return false;

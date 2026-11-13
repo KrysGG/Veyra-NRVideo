@@ -15,7 +15,7 @@ VPage {
     id: root
     signal requestPage(string page)
 
-    property string section: "look"
+    property string section: (typeof vyTest !== "undefined" && vyTest.settingsSection) ? vyTest.settingsSection : "look"
     // The shortcut row waiting for a new key ("" = none).
     property string capturingKey: ""
     onSectionChanged: {
@@ -40,6 +40,7 @@ VPage {
 
     readonly property var sections: [
         { id: "look",   label: qsTr("外观"), icon: "palette" },
+        { id: "themes", label: qsTr("Themes"), icon: "palette" },
         { id: "window", label: qsTr("启动与窗口"), icon: "appwin" },
         { id: "play",   label: qsTr("播放", "section"), icon: "play" },
         { id: "audio",  label: qsTr("音频"), icon: "vol" },
@@ -146,6 +147,81 @@ VPage {
                 spacing: 12
 
                 // --- 外观 ---
+                ColumnLayout {
+                    id: secThemes
+                    Layout.fillWidth: true
+                    spacing: 12
+                    visible: root.section === "themes"
+                    VH1 { text: qsTr("Themes") }
+                    Text {
+                        text: qsTr("Colour the whole app. Video, enhancement and frame pacing are not affected.")
+                        color: Theme.t2
+                        font.family: Theme.fontUi
+                        font.pixelSize: Theme.fsBody
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                    }
+                    Flow {
+                        objectName: "set-themes"
+                        Layout.fillWidth: true
+                        spacing: 14
+                        Repeater {
+                            model: [
+                                { id: "default", name: qsTr("Veyra"), blurb: qsTr("The original graphite look"),
+                                  bg: ["#070709", "#17171C"], swatches: ["#FF8A3D", "#3DDC84", "#B79BFF", "#F3F3F5"] },
+                                { id: "vice", name: qsTr("Vice Nights"), blurb: qsTr("Neon sunset: hot pink, ocean teal, night violet"),
+                                  bg: ["#0A0616", "#3A1A5E"], swatches: ["#FF3EA5", "#2EF2D6", "#A87BFF", "#FFB04A"] }
+                            ]
+                            delegate: Rectangle {
+                                id: themeCard
+                                required property var modelData
+                                readonly property bool on: (veyra.preferences.theme || "default") === modelData.id
+                                objectName: "set-theme-" + modelData.id
+                                width: 260; height: 150
+                                radius: Theme.rCard
+                                border.width: on ? 2 : 1
+                                border.color: on ? Theme.accent : (cardHover.hovered ? Theme.stroke2 : Theme.stroke)
+                                gradient: Gradient {
+                                    orientation: Gradient.Vertical
+                                    GradientStop { position: 0.0; color: themeCard.modelData.bg[1] }
+                                    GradientStop { position: 1.0; color: themeCard.modelData.bg[0] }
+                                }
+                                scale: cardHover.hovered && !on ? 1.02 : 1
+                                Behavior on scale { NumberAnimation { duration: Theme.d(240); easing.bezierCurve: Theme.spring } }
+                                Behavior on border.color { ColorAnimation { duration: Theme.d(200) } }
+                                Column {
+                                    anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
+                                    anchors.margins: 14
+                                    spacing: 6
+                                    Row {
+                                        spacing: 6
+                                        Repeater {
+                                            model: themeCard.modelData.swatches
+                                            delegate: Rectangle { required property var modelData; width: 18; height: 18; radius: 9; color: modelData }
+                                        }
+                                    }
+                                    Text {
+                                        text: themeCard.modelData.name + (themeCard.on ? qsTr("  ·  Active") : "")
+                                        color: "#FFFFFF"
+                                        font.family: Theme.fontUi; font.pixelSize: Theme.fsH3
+                                        font.weight: Font.DemiBold; font.variableAxes: Theme.axesDemiBold
+                                    }
+                                    Text {
+                                        text: themeCard.modelData.blurb
+                                        color: Qt.rgba(1, 1, 1, 0.7)
+                                        font.family: Theme.fontUi; font.pixelSize: Theme.fsSmall
+                                        width: parent.width; wrapMode: Text.WordWrap
+                                    }
+                                }
+                                HoverHandler { id: cardHover; cursorShape: Qt.PointingHandCursor }
+                                TapHandler { onTapped: veyra.setPreference("theme", themeCard.modelData.id) }
+                                Accessible.role: Accessible.RadioButton
+                                Accessible.name: themeCard.modelData.name
+                                Accessible.checked: themeCard.on
+                            }
+                        }
+                    }
+                }
                 ColumnLayout {
                     id: secLook
                     Layout.fillWidth: true
@@ -748,7 +824,7 @@ VPage {
                         }
                         VRow {
                             label: qsTr("Frame generation GPU")
-                            hint: qsTr("NVIDIA VFG only. Another GPU runs frame generation; frames are copied over PCIe. Reopen the video to apply")
+                            hint: veyra.fgGpuStatus
                             VSelect {
                                 objectName: "set-fg-gpu"
                                 implicitWidth: 230

@@ -1801,7 +1801,7 @@ VPage {
                             VRow {
                                 label: qsTr("Frame generation GPU")
                                 visible: veyra.fgBackendName === "vfg"
-                                hint: qsTr("Runs NVIDIA VFG on this GPU; frames are copied over PCIe. On a second GPU use 中 or 中+低 quality. Reopen the source to apply")
+                                hint: veyra.fgGpuStatus
                                 VSelect {
                                     objectName: "list-fg-gpu"
                                     implicitWidth: 210
