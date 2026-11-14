@@ -155,6 +155,18 @@ int main(){
     check(!budget.admit(50000002,49800002,1.217,.047,true),"cheap recovery cannot bypass an expired deadline");
     check(budget.predicted(60000002,true)==budget.predicted(60000002),"expired recovery measurement falls back to steady estimate");
     {
+        // Fork split mode: the second GPU ramps up from idle clocks, so the first
+        // evaluation and those after a skip are warmup for kSplitEvaluations groups.
+        using veyra::engine::FgCostSettling;
+        FgCostSettling split;split.setWarmup(FgCostSettling::kSplitEvaluations);split.reset();
+        const int64_t pair=333667;int64_t t=100000000;unsigned warm=0;
+        warm+=split.observe(false,true,t+=pair);
+        check(!split.observe(true,false,t+=pair)&&!split.holding(t),"split mode: a skip during ramp-up does not hold");
+        for(unsigned i=1;i<FgCostSettling::kSplitEvaluations+1;++i)warm+=split.observe(false,true,t+=pair);
+        check(warm==FgCostSettling::kSplitEvaluations,"split mode: first evaluations are clock ramp-up, then steady");
+        check(!split.observe(false,true,t+=pair),"split mode: steady after ramp-up");
+    }
+    {
         using veyra::engine::FgCostSettling;
         FgCostSettling settling;const int64_t pair=333667;int64_t t=100000000;
         check(!settling.observe(false,true,t),"the first evaluation is a steady sample");

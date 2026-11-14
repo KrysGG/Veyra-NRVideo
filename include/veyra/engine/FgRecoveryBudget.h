@@ -126,22 +126,32 @@ public:
 // after 2, 4, then every 8 s, where the budget alone would retry every 2 s.
 class FgCostSettling {
     int64_t lastEvaluated_=0,holdUntil_=0;
-    unsigned left_=0,recorded_=0,failures_=0;
+    unsigned left_=0,recorded_=0,failures_=0,warmup_=kEvaluations;
     bool probing_=false;
 public:
     static constexpr int64_t kIdle100ns=10000000,kRetry100ns=20000000;
     static constexpr unsigned kEvaluations=2,kProbeGroups=4,kMaxDoublings=2;
-    void reset(){*this=FgCostSettling{};}
+    // Fork split mode: a second GPU that only runs VFG drops to idle clocks
+    // (RTX 3090 at 210 MHz, PCIe gen 1) during a skip, and a lone probe then
+    // costs ~10x its steady time (field log 2026-11-14: 213 ms vs ~20 ms), so
+    // it never passes and the card never wakes. Treat about a second of
+    // evaluations, including the first one after opening, as clock ramp-up.
+    static constexpr unsigned kSplitEvaluations=48;
+    void setWarmup(unsigned evaluations){warmup_=std::max(kEvaluations,evaluations);}
+    void reset(){const unsigned warmup=warmup_;*this=FgCostSettling{};warmup_=warmup;}
     // Call for each completed group in order; true marks a warmup sample.
     bool observe(bool skipped,bool evaluated,int64_t now){
         if(skipped){
+            // Split ramp-up: a pair skipped while the second GPU is still clocking
+            // up is not a failed probe (holding would let it fall asleep again).
+            if(probing_&&left_&&warmup_>kEvaluations)return false;
             if(probing_){probing_=false;left_=0;holdUntil_=now+(kRetry100ns<<failures_);failures_=std::min(failures_+1,kMaxDoublings);}
             return false;
         }
         if(!evaluated)return false;
-        const bool idle=lastEvaluated_&&now-lastEvaluated_>=kIdle100ns;
+        const bool idle=lastEvaluated_?now-lastEvaluated_>=kIdle100ns:warmup_>kEvaluations;
         lastEvaluated_=now;
-        if(idle){left_=kEvaluations;recorded_=0;probing_=true;}
+        if(idle){left_=warmup_;recorded_=0;probing_=true;}
         if(left_){--left_;return true;}
         if(probing_&&++recorded_>=kProbeGroups){probing_=false;failures_=0;}
         return false;
