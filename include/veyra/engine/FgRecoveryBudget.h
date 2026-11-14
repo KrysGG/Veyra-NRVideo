@@ -134,9 +134,10 @@ public:
     // Fork split mode: a second GPU that only runs VFG drops to idle clocks
     // (RTX 3090 at 210 MHz, PCIe gen 1) during a skip, and a lone probe then
     // costs ~10x its steady time (field log 2026-11-14: 213 ms vs ~20 ms), so
-    // it never passes and the card never wakes. Treat about a second of
-    // evaluations, including the first one after opening, as clock ramp-up.
-    static constexpr unsigned kSplitEvaluations=48;
+    // it never passes and the card never wakes. Treat a dozen
+    // evaluations (~0.2 s), including the first after opening, as clock ramp-up;
+    // longer piles up visible lateness when the mode really is too slow.
+    static constexpr unsigned kSplitEvaluations=12;
     void setWarmup(unsigned evaluations){warmup_=std::max(kEvaluations,evaluations);}
     void reset(){const unsigned warmup=warmup_;*this=FgCostSettling{};warmup_=warmup;}
     // Call for each completed group in order; true marks a warmup sample.
