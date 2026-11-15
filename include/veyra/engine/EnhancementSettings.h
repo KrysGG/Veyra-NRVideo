@@ -458,7 +458,7 @@ struct EnhancementSettings {
     // UI "VFG 自动调控": live 2X VFG runs a pair with the next faster model when the
     // chosen one would miss its refresh or the budget (LivePresentationTiming.h).
     // A global control kept in shell preferences.
-    bool vfgAutoRegulate=false;
+    bool vfgAutoRegulate=true;
     ContentRate content=ContentRate::Transport;
     AudioSyncMode audioSync=AudioSyncMode::Automatic;
     int32_t audioOffsetMs=0;
