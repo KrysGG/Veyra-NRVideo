@@ -55,7 +55,7 @@ public:
     // is ready on. The graph queue itself never waits on the second GPU.
     bool split() const;
     ID3D12GraphicsCommandList* beginConsumer();
-    bool submitConsumer(unsigned parity,ID3D12Fence*& fence,uint64_t& value);
+    bool submitConsumer(unsigned parity,ID3D12Fence*& fence,uint64_t& value,ID3D12Fence* graphFence=nullptr,uint64_t graphValue=0);
     void shutdown();
 private:
     bool initializeOnce(gfx::D3D12DeviceContext&,const std::wstring& runtimeRoot,

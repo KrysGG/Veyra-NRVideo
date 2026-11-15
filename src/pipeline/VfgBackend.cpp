@@ -889,19 +889,20 @@ ID3D12GraphicsCommandList* VfgBackend::beginConsumer(){
     return nullptr;
 #endif
 }
-bool VfgBackend::submitConsumer(unsigned parity,ID3D12Fence*& fence,uint64_t& value){
+bool VfgBackend::submitConsumer(unsigned parity,ID3D12Fence*& fence,uint64_t& value,ID3D12Fence* graphFence,uint64_t graphValue){
 #ifdef VEYRA_HAVE_CUDA_DRIVER_HEADERS
     auto& p=*impl_;if(p.consumerOpen<0||parity>1)return false;
     auto& slot=p.consumerSlots[size_t(p.consumerOpen)];p.consumerOpen=-1;
     if(!hr(slot.list->Close(),"Close VFG consumer list"))return false;
     // Wait for the second GPU's copy of this job only on the consumer queue.
     if(!hr(p.consumerQueue->Wait(p.fromRemoteLocal.Get(),p.consumerWait),"consumer wait second GPU"))return false;
+    if(graphFence&&!hr(p.consumerQueue->Wait(graphFence,graphValue),"consumer wait graph queue"))return false;
     ID3D12CommandList* list=slot.list.Get();p.consumerQueue->ExecuteCommandLists(1,&list);
     value=++p.consumerValue;
     if(!hr(p.consumerQueue->Signal(p.consumerFence.Get(),value),"signal VFG consumer"))return false;
     slot.value=value;p.parityConsumed[parity]=value;fence=p.consumerFence.Get();return true;
 #else
-    (void)parity;(void)fence;(void)value;return false;
+    (void)parity;(void)fence;(void)value;(void)graphFence;(void)graphValue;return false;
 #endif
 }
 void VfgBackend::shutdown(){
