@@ -35,6 +35,11 @@ ColumnLayout {
         const i = p.search(/\/runtime(_local)?\//)
         return i >= 0 ? p.substring(i + 1) : p
     }
+    // The step pictures always show an example under Downloads, never this PC's real
+    // install path; the real path is in the 文件夹位置 line and behind the button.
+    function examplePath(path) {
+        return qsTr("下载") + " › Veyra › " + relativeFolder(path).split("/").join(" › ")
+    }
     function folderName(path) {
         const parts = String(path || "").split(/[\\/]/).filter(p => p.length > 0)
         return parts.length ? parts[parts.length - 1] : ""
@@ -416,7 +421,7 @@ ColumnLayout {
                 MockWindow {
                     target: true
                     title: "Veyra · " + guide.folderName(guide.dlssFg.folder)
-                    address: guide.dlssFg.folder || ""
+                    address: guide.examplePath(guide.dlssFg.folder)
                     rows: [
                         { text: "nvngx_dlss.dll", kind: "dll", ok: guide.dlssSr.present === true, dim: guide.dlssSr.present !== true },
                         { text: "nvngx_dlssg.dll", kind: "dll", ok: guide.dlssFg.present === true, dim: guide.dlssFg.present !== true }
@@ -503,7 +508,7 @@ ColumnLayout {
                 MockWindow {
                     target: true
                     title: "Veyra · anr"
-                    address: guide.anr.folder || ""
+                    address: guide.examplePath(guide.anr.folder)
                     rows: guide.anr.present ? [{ text: "nvngx_dlssg.dll", kind: "dll", ok: true }] : []
                     dropText: guide.anr.present ? "" : qsTr("放到这里")
                 }
