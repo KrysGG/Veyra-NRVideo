@@ -505,7 +505,17 @@ VPage {
     // One geometry contract for this layout and Main's native video HWND.
     // These are available before the first layout pass when a source is opened.
     readonly property real videoColumnWidth: Math.max(1, root.width - root.inspectorWidth - 14 * 2 - 10)
-    readonly property real metersHeight: Math.max(172, meter3Content.implicitHeight + 28)
+    // Fork: the stats cards under the picture can be resized (drag the gap above
+    // them, double-click to return to automatic) and collapsed to a slim bar.
+    readonly property real metersAutoHeight: Math.max(172, meter3Content.implicitHeight + 28)
+    readonly property bool metersCollapsed: veyra.preferences.listMetersCollapsed === true
+    readonly property real metersMaxHeight: Math.max(120, (root.height - head.height - 14 * 2 - 20) * 0.6)
+    readonly property real metersOpenHeight: {
+        const saved = Number(veyra.preferences.listMetersHeight || 0)
+        return Math.max(120, Math.min(metersMaxHeight, saved > 0 ? saved : metersAutoHeight))
+    }
+    readonly property real metersHeight: root.metersCollapsed ? 34 : root.metersOpenHeight
+    property real metersDrag: -1
     readonly property real videoCardHeight: Math.max(transport.height + 1,
         root.height - 14 * 2 - head.height - 10 - root.metersHeight - 10)
     readonly property rect videoViewport: Qt.rect(14, 14 + head.height + 10,
@@ -603,7 +613,12 @@ VPage {
             anchors.right: parent.right
             anchors.bottom: parent.bottom
             readonly property bool compact: width < 520
-            height: compact ? 68 : 34
+            // Fork: a live capture has nothing to pause or seek, so the bar goes
+            // and the picture takes its height; the frame generation tag and the
+            // fullscreen button float over the picture's top-right corner instead.
+            readonly property bool live: veyra.isCapture
+            visible: !live
+            height: live ? 0 : compact ? 68 : 34
             anchors.leftMargin: 10
             anchors.rightMargin: 10
             RowLayout {
@@ -752,10 +767,195 @@ VPage {
         }
     }
 
+    // Fork: live capture controls over the picture's top-right corner. A cover, so
+    // it is cut out of the native video window; dim until the pointer reaches it.
+    Rectangle {
+        id: liveControls
+        objectName: "pro-live-controls"
+        readonly property bool videoCover: visible
+        readonly property real coverRadius: radius
+        visible: transport.live && !root.overlay && veyra.hasSource
+        z: 4
+        anchors.right: vwrap.right
+        anchors.top: vwrap.top
+        anchors.margins: 10
+        width: liveRow.implicitWidth + 16
+        height: 34
+        radius: 17
+        color: Qt.rgba(0.04, 0.03, 0.07, liveHover.hovered ? 0.92 : 0.7)
+        border.width: 1
+        border.color: liveHover.hovered ? Theme.stroke2 : Theme.stroke
+        opacity: liveHover.hovered ? 1 : 0.55
+        Behavior on opacity { NumberAnimation { duration: Theme.d(180) } }
+        HoverHandler { id: liveHover }
+        RowLayout {
+            id: liveRow
+            anchors.centerIn: parent
+            spacing: 6
+            VTag {
+                objectName: "pro-live-fg-tag"
+                kind: veyra.fgEnabled ? "acc" : ""
+                text: veyra.fgEnabled ? veyra.fgMultiplier + "X" : qsTr("补帧关")
+            }
+            Item {
+                objectName: "pro-live-fullscreen"
+                implicitWidth: 26; implicitHeight: 26
+                VIcon { anchors.centerIn: parent; name: "max"; color: liveFullHover.hovered ? Theme.t1 : Theme.t2 }
+                HoverHandler { id: liveFullHover; cursorShape: Qt.PointingHandCursor }
+                TapHandler { onTapped: root.requestFullscreen() }
+                ToolTip.visible: liveFullHover.hovered
+                ToolTip.text: qsTr("全屏（双击画面 / F11）· 全屏后按 %1 打开快速调节").arg(veyra.gameMode ? veyra.shortcuts.gamePanel : "Home")
+            }
+        }
+    }
+
+    // Fork: the collapsed stats bar: the headline numbers and the way back.
+    Rectangle {
+        id: metersBar
+        objectName: "pro-meters-bar"
+        visible: !root.overlay && root.metersCollapsed
+        anchors.left: vwrap.left
+        anchors.top: vwrap.bottom
+        anchors.topMargin: 10
+        width: vwrap.width
+        height: 34
+        radius: 12
+        color: Theme.card
+        border.width: 1
+        border.color: barHover2.hovered ? Theme.stroke2 : Theme.stroke
+        HoverHandler { id: barHover2; cursorShape: Qt.PointingHandCursor }
+        TapHandler { onTapped: veyra.setPreference("listMetersCollapsed", false) }
+        RowLayout {
+            anchors.fill: parent
+            anchors.leftMargin: 14
+            anchors.rightMargin: 8
+            spacing: 14
+            Text {
+                text: (veyra.submitFpsKnown ? veyra.submitFps.toFixed(1) : "—") + " fps"
+                color: veyra.submitFpsKnown ? Theme.ok : Theme.t3
+                font.family: Theme.fontMono; font.pixelSize: 12; font.weight: Font.DemiBold
+            }
+            Text {
+                text: (veyra.submitLowFpsKnown ? veyra.submitLowFps.toFixed(1) : "—") + " " + qsTr("1% low")
+                color: Theme.t2; font.family: Theme.fontMono; font.pixelSize: 12
+            }
+            Text {
+                visible: veyra.chainTotalMsKnown && veyra.stageBudgetMs > 0
+                readonly property real load: veyra.stageBudgetMs > 0 ? veyra.chainTotalMs / veyra.stageBudgetMs : 0
+                text: veyra.chainTotalMs.toFixed(1) + " ms · " + Math.round(load * 100) + "% " + qsTr("of budget")
+                color: load < 0.7 ? Theme.ok : load < 1.0 ? Theme.warn : Theme.err
+                font.family: Theme.fontMono; font.pixelSize: 12
+            }
+            Repeater {
+                model: veyra.gpuUsages.length > 1 ? veyra.gpuUsages : []
+                Text {
+                    required property var modelData
+                    required property int index
+                    text: "GPU " + (index + 1) + " " + (modelData.known ? Math.round(modelData.value) + "%" : "—")
+                    color: Theme.t2; font.family: Theme.fontMono; font.pixelSize: 12
+                }
+            }
+            Item { Layout.fillWidth: true }
+            Text { text: qsTr("Show stats"); color: Theme.t3; font.family: Theme.fontUi; font.pixelSize: 11 }
+            VIcon { name: "down"; size: 14; color: Theme.t2; rotation: 180 }
+        }
+    }
+
+    // Fork: drag the gap between the picture and the stats cards to resize them.
+    // Like the side panel, a guide shows the new edge and the picture resizes once,
+    // on release.
+    MouseArea {
+        id: metersSplit
+        objectName: "pro-meters-split"
+        visible: !root.overlay && !root.metersCollapsed
+        x: vwrap.x
+        y: vwrap.y + vwrap.height
+        width: vwrap.width
+        height: 10
+        cursorShape: Qt.SplitVCursor
+        hoverEnabled: true
+        preventStealing: true
+        property real pressY: 0
+        property real pressHeight: 0
+        property bool moved: false
+        onPressed: mouse => {
+            moved = false
+            pressY = mapToItem(root, 0, mouse.y).y
+            pressHeight = root.metersHeight
+            root.metersDrag = pressHeight
+        }
+        onPositionChanged: mouse => {
+            if (!pressed) return
+            const dy = mapToItem(root, 0, mouse.y).y - pressY
+            if (Math.abs(dy) > 2) moved = true
+            root.metersDrag = Math.max(120, Math.min(root.metersMaxHeight, pressHeight - dy))
+        }
+        onReleased: {
+            const h = Math.round(root.metersDrag)
+            root.metersDrag = -1
+            if (moved) veyra.setPreference("listMetersHeight", h)
+        }
+        onCanceled: root.metersDrag = -1
+        onDoubleClicked: veyra.setPreference("listMetersHeight", 0)
+        Rectangle {
+            anchors.centerIn: parent
+            height: 3
+            width: metersSplit.containsMouse || metersSplit.pressed ? 44 : 28
+            radius: 1.5
+            color: metersSplit.pressed ? Theme.accent : Qt.rgba(1, 1, 1, 0.28)
+            opacity: metersSplit.containsMouse || metersSplit.pressed ? 1 : 0.35
+            Behavior on opacity { NumberAnimation { duration: Theme.d(150) } }
+            Behavior on width { NumberAnimation { duration: Theme.d(180); easing.type: Easing.OutCubic } }
+        }
+        ToolTip {
+            visible: metersSplit.containsMouse && !metersSplit.pressed
+            delay: 600
+            x: metersSplit.mouseX + 12
+            y: -implicitHeight - 6
+            text: qsTr("Drag to resize the stats cards · double-click for automatic height")
+        }
+    }
+    Rectangle {
+        id: metersGhost
+        objectName: "pro-meters-ghost"
+        readonly property bool videoCover: visible
+        readonly property real coverRadius: radius
+        visible: metersSplit.pressed && root.metersDrag >= 0
+        z: 5
+        x: vwrap.x
+        y: root.height - 14 - root.metersDrag
+        width: vwrap.width
+        height: root.metersDrag
+        radius: Theme.rCard
+        color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.06)
+        border.width: 1
+        border.color: Theme.accent
+        Rectangle {
+            anchors.centerIn: parent
+            width: metersGhostLabel.implicitWidth + 20
+            height: 26
+            radius: 13
+            color: Theme.popover
+            border.width: 1
+            border.color: Theme.stroke2
+            Text {
+                id: metersGhostLabel
+                anchors.centerIn: parent
+                text: Math.round(root.metersDrag) + " px"
+                color: Theme.t1
+                font.family: Theme.fontMono
+                font.pixelSize: 12
+            }
+        }
+    }
+
     // --- meters (at least 172px, three cards) -----------------------------
     RowLayout {
         id: meters
-        visible: !root.overlay
+        visible: !root.overlay && !root.metersCollapsed
+        layer.enabled: root.metersDrag >= 0 && !root.softwareRendering
+        layer.effect: MultiEffect { blurEnabled: true; blur: 0.7; blurMax: 32; saturation: -0.2 }
+        opacity: root.metersDrag >= 0 && root.softwareRendering ? 0.35 : 1
         anchors.left: vwrap.left
         anchors.top: vwrap.bottom
         anchors.topMargin: 10
@@ -769,6 +969,7 @@ VPage {
         // first, so the stage timings beside it keep room to read.
         Rectangle {
             id: meter1
+            clip: true
             visible: meters.width >= 760
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -1055,7 +1256,10 @@ VPage {
         // Card 3: frame rate and cadence.
         Rectangle {
             id: meter3
-            readonly property bool wide: width >= 380
+            // Fork: with one orb per GPU the orbs need more room beside the numbers;
+            // below that width they move under the frame rate instead of overlapping it.
+            readonly property bool wide: width >= (veyra.gpuUsages.length > 1 ? 540 : 380)
+            clip: true
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.preferredWidth: 1.15
@@ -1076,7 +1280,17 @@ VPage {
                         Layout.fillWidth: true
                         Layout.alignment: Qt.AlignTop
                         spacing: 6
-                        VEyebrow { text: qsTr("帧率与节奏") }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            VEyebrow { Layout.fillWidth: true; text: qsTr("帧率与节奏") }
+                            VButton {
+                                objectName: "pro-meters-collapse"
+                                implicitWidth: 22; implicitHeight: 22
+                                icon: true; ghost: true; iconName: "down"
+                                tip: qsTr("Collapse the stats cards")
+                                onClicked: veyra.setPreference("listMetersCollapsed", true)
+                            }
+                        }
 
                         // The submit rate is the headline, as an overlay such as RTSS shows
                         // it: both count Present calls. Panel scanout is not measured, so
@@ -1143,16 +1357,14 @@ VPage {
                             columns: 2
                             columnSpacing: 14
                             rowSpacing: 3
-                            Text { text: qsTr("进程内待呈现"); color: Theme.t3; font.family: Theme.fontUi; font.pixelSize: 12 }
+                            Text { Layout.fillWidth: true; Layout.minimumWidth: 0; elide: Text.ElideRight; text: qsTr("进程内待呈现"); color: Theme.t3; font.family: Theme.fontUi; font.pixelSize: 12 }
                             Text {
-                                Layout.fillWidth: true
                                 text: veyra.queuedFramesKnown ? veyra.queuedFrames.toFixed(0) + qsTr(" 帧") : qsTr("未测")
                                 color: Theme.t1; font.family: Theme.fontMono; font.pixelSize: 12
                                 horizontalAlignment: Text.AlignRight
                             }
-                            Text { text: qsTr("跳过源帧"); color: Theme.t3; font.family: Theme.fontUi; font.pixelSize: 12 }
+                            Text { Layout.fillWidth: true; Layout.minimumWidth: 0; elide: Text.ElideRight; text: qsTr("跳过源帧"); color: Theme.t3; font.family: Theme.fontUi; font.pixelSize: 12 }
                             Text {
-                                Layout.fillWidth: true
                                 text: String(veyra.skippedFrames)
                                 color: Theme.t1; font.family: Theme.fontMono; font.pixelSize: 12
                                 horizontalAlignment: Text.AlignRight
@@ -1887,6 +2099,7 @@ VPage {
                                 Layout.topMargin: 4
                                 visible: veyra.nodeMode===0
                                 title: qsTr("NR 全局保护区域")
+                                info: qsTr("Draw regions that every NR layer skips, for example a HUD, a map or text that NR makes blotchy. Frame generation still runs there.")
                                 glyph: "shield"; hue: Theme.accent
                                 summary: qsTr("区域内排除所有 NR 层")
                                 on: veyra.protectionEnabled
@@ -1918,6 +2131,7 @@ VPage {
                             glyph: "heart"
                             hue: "#FF8FBF"
                             title: qsTr("美颜")
+                            info: qsTr("Face restore and skin smoothing for camera footage. Not useful for games; leave it off for a PS5 capture to save GPU time.")
                             summary: veyra.beautyLayers.length === 0 ? qsTr("未添加美颜层 · 人脸原画保护与磨皮")
                                      : !veyra.beautyAnyEnabled ? qsTr("已关闭")
                                      : veyra.beautyStatus.length > 0 ? veyra.beautyStatus

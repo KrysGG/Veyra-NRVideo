@@ -142,15 +142,32 @@ Rectangle {
                 ColumnLayout {
                     Layout.fillWidth: true
                     spacing: 2
-                    Text {
+                    // Fork: the round "i" sits right after the title.
+                    RowLayout {
                         Layout.fillWidth: true
-                        text: acc.title
-                        color: acc.bypassed ? Theme.t3 : Theme.t1
-                        font.strikeout: acc.bypassed
-                        font.family: Theme.fontUi
-                        font.pixelSize: 13
-                        font.weight: Font.DemiBold; font.variableAxes: Theme.axesDemiBold
-                        elide: Text.ElideRight
+                        spacing: 6
+                        Text {
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            Layout.maximumWidth: headerInfo.visible ? Math.ceil(implicitWidth) + 1 : Number.POSITIVE_INFINITY
+                            text: acc.title
+                            color: acc.bypassed ? Theme.t3 : Theme.t1
+                            font.strikeout: acc.bypassed
+                            font.family: Theme.fontUi
+                            font.pixelSize: 13
+                            font.weight: Font.DemiBold; font.variableAxes: Theme.axesDemiBold
+                            elide: Text.ElideRight
+                        }
+                        VInfo {
+                            id: headerInfo
+                            objectName: acc.objectName.length > 0 ? acc.objectName + "-info" : "acc-info"
+                            Layout.alignment: Qt.AlignVCenter
+                            host: acc
+                            offsetY: acc.headerHeight
+                            title: acc.title
+                            text: acc.info
+                        }
+                        Item { Layout.fillWidth: true; visible: headerInfo.visible }
                     }
                     Text {
                         Layout.fillWidth: true
@@ -161,15 +178,6 @@ Rectangle {
                         font.pixelSize: 11
                         elide: Text.ElideRight
                     }
-                }
-
-                VInfo {
-                    id: headerInfo
-                    objectName: acc.objectName.length > 0 ? acc.objectName + "-info" : "acc-info"
-                    host: acc
-                    offsetY: acc.headerHeight
-                    title: acc.title
-                    text: acc.info
                 }
 
                 RowLayout {

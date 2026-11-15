@@ -38,7 +38,7 @@ RowLayout {
             known: modelData.known
             fraction: modelData.value / 100
             value: known ? Math.round(modelData.value) + "%" : "—"
-            label: "GPU " + (index + 1) + ": " + orbsRoot.shortGpuName(modelData.name)
+            label: "GPU " + (index + 1) + ":\n" + orbsRoot.shortGpuName(modelData.name)
             tip: "GPU " + (index + 1) + " · " + modelData.name + qsTr(": busiest engine type, sampled every second (Task Manager's GPU counters)")
         }
     }

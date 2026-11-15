@@ -60,7 +60,12 @@ QString QmlPlayerBridge::flowBackend() const {
     // name; report the fact we do have and let it read as unmeasured otherwise.
     const auto& s = impl_->snapshot;
     if (s.flowPerf == 0) return {};
-    return QStringLiteral("GPU 光流");
+    // Fork: name the optical flow in use instead of the generic Chinese label.
+    switch (settings().opticalFlowBackend) {
+    case engine::OpticalFlowBackend::Nvidia: return QStringLiteral("NVIDIA NVOF");
+    case engine::OpticalFlowBackend::AmdFidelityFx: return QStringLiteral("AMD FidelityFX");
+    default: return tr("GPU 光流");
+    }
 }
 
 int QmlPlayerBridge::opticalFlowChoice() const { return int(settings().opticalFlowBackend); }

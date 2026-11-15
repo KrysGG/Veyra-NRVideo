@@ -188,6 +188,8 @@ bool QmlPlayerBridge::setPreference(const QString& key, const QVariant& value) {
         {"subtitleMargin", {0, 240}}, {"subtitleLines", {0, 8}},
         // 列表模式 parameter panel width (ProPage splitter); QML clamps it to the window.
         {"listInspectorWidth", {300, 4000}},
+        // Fork: stats cards height under the picture (0: automatic).
+        {"listMetersHeight", {0, 4000}},
         // Network sources (#48): seconds to collect before the first picture; -1 follows the buffer level.
         {"networkPrebuffer", {-1, 60}},
         // Live recording: the target bitrate for the file, and the frame rate
@@ -201,7 +203,7 @@ bool QmlPlayerBridge::setPreference(const QString& key, const QVariant& value) {
                                    "magewellLowLatency", "blackmagicNativeCapture", "captureShowAllFrameRates", "cinePillHidden", "exportStopsPlayback", "obsGameCapture", "autoResume", "fullscreenMemoryProtection", "prewarmEnhancement", "hdrFgCompatibility", "computeOnMonitorGpu", "deinterlace", "networkAutoReconnect",
                                    // Fork: list-view panel collapsed to a rail, descriptions shown under
                                    // every setting, and the tuning guide under GPU stages opened.
-                                   "listInspectorCollapsed", "showHints", "stageGuideOpen"};
+                                   "listInspectorCollapsed", "showHints", "stageGuideOpen", "listMetersCollapsed"};
     QVariant stored;
     if (ranges.contains(key)) {
         bool ok = false; const int n = value.toInt(&ok);

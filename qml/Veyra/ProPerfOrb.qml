@@ -18,6 +18,8 @@ Item {
     property bool showLabel: true
     readonly property color tone: !known ? Qt.rgba(1, 1, 1, 0.25)
                                 : fraction < 0.7 ? Theme.ok : fraction < 1.0 ? "#F2B941" : Theme.err
+    // Rings line up even when one label runs to two lines (GPU name orbs).
+    Layout.alignment: Qt.AlignTop
     implicitWidth: Math.max(size, labelText.implicitWidth)
     implicitHeight: showLabel ? size + 4 + labelText.implicitHeight : size
     // The ring is only a few dozen pixels across. Sub-percent changes do
@@ -65,11 +67,13 @@ Item {
         anchors.top: ring.bottom; anchors.topMargin: 4
         anchors.horizontalCenter: parent.horizontalCenter
         text: orb.label
+        horizontalAlignment: Text.AlignHCenter
+        lineHeight: 0.95
         color: Theme.t3
         font.family: Theme.fontUi
         font.pixelSize: 10
     }
     HoverHandler { id: orbHover }
     ToolTip.visible: orbHover.hovered && (orb.tip.length > 0 || !orb.showLabel)
-    ToolTip.text: (orb.showLabel ? "" : orb.label + "：") + orb.tip
+    ToolTip.text: (orb.showLabel ? "" : orb.label.replace("\n", " ") + "：") + orb.tip
 }
