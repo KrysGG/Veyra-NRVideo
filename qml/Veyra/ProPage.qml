@@ -181,7 +181,7 @@ VPage {
     // move the card; double-click it to put every card back in place and size.
     component MeterGrip: Item {
         id: grip
-        required property Item card
+        required property var card
         implicitWidth: 12
         implicitHeight: 18
         Grid {
@@ -353,12 +353,16 @@ VPage {
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.margins: 14
-        readonly property bool compact: width < 972
+        // Fork: the source button and its format tags live in the Signal card while
+        // that card is on screen; the header then keeps one row and its empty left
+        // side stays free for dragging the window.
+        readonly property bool compact: width < 972 && sourceInfo.visible
         height: compact ? 72 : 32
 
         RowLayout {
             id: sourceInfo
             objectName: "pro-source-info"
+            visible: !root.sourceInSignal
             anchors.left: parent.left
             anchors.top: parent.top
             width: head.compact ? head.width : Math.max(0, head.width - headActions.width - 16)
@@ -567,6 +571,8 @@ VPage {
     }
     readonly property real metersHeight: root.metersCollapsed ? 34 : root.metersOpenHeight
     property real metersDrag: -1
+    // Fork: where the source button is shown (see the header).
+    readonly property bool sourceInSignal: meters.visible && meter1.visible
     // Fork: the cards can also be put in any order (drag the grip beside a
     // title) and made wider or narrower (drag the gap between two cards).
     // Double-clicking a grip puts both back.
@@ -839,36 +845,93 @@ VPage {
         }
     }
 
-    // Fork: live capture controls over the picture's top-right corner. A cover, so
-    // it is cut out of the native video window; dim until the pointer reaches it.
+    // Fork: live capture controls over the picture's top-right corner. Hidden
+    // until the pointer is over the picture, and gone again a moment after it
+    // leaves. A cover, so it is cut out of the native video window while shown.
+    readonly property bool liveWanted: captureHover.hovered || liveHover.hovered || liveVolume.pressed
+    property bool liveShown: false
+    onLiveWantedChanged: {
+        if (liveWanted) { liveHideTimer.stop(); liveShown = true }
+        else liveHideTimer.restart()
+    }
+    Timer { id: liveHideTimer; interval: 1200; onTriggered: root.liveShown = false }
+    // Hover over the picture: the native video window passes the pointer
+    // through (HTTRANSPARENT), so this sees it.
+    Item {
+        x: vwrap.x; y: vwrap.y
+        width: vwrap.width; height: vwrap.height
+        visible: vwrap.visible
+        HoverHandler { id: captureHover }
+    }
     Rectangle {
         id: liveControls
         objectName: "pro-live-controls"
         readonly property bool videoCover: visible
         readonly property real coverRadius: radius
-        visible: transport.live && !root.overlay && veyra.hasSource
+        visible: transport.live && !root.overlay && veyra.hasSource && (root.liveShown || opacity > 0.01)
         z: 4
         anchors.right: vwrap.right
         anchors.top: vwrap.top
         anchors.margins: 10
-        width: liveRow.implicitWidth + 16
-        height: 34
-        radius: 17
-        color: Qt.rgba(0.04, 0.03, 0.07, liveHover.hovered ? 0.92 : 0.7)
+        width: liveRow.implicitWidth + 20
+        height: 36
+        radius: 18
+        color: Qt.rgba(0.04, 0.03, 0.07, liveHover.hovered ? 0.92 : 0.78)
         border.width: 1
         border.color: liveHover.hovered ? Theme.stroke2 : Theme.stroke
-        opacity: liveHover.hovered ? 1 : 0.55
+        opacity: root.liveShown ? (liveHover.hovered ? 1 : 0.85) : 0
         Behavior on opacity { NumberAnimation { duration: Theme.d(180) } }
         HoverHandler { id: liveHover }
         RowLayout {
             id: liveRow
             anchors.centerIn: parent
-            spacing: 6
+            spacing: 8
             VTag {
                 objectName: "pro-live-fg-tag"
                 kind: veyra.fgEnabled ? "acc" : ""
                 text: veyra.fgEnabled ? veyra.fgMultiplier + "X" : qsTr("补帧关")
             }
+            // Volume: the speaker mutes, the slider sets the level (Up/Down keys too).
+            Item {
+                objectName: "pro-live-mute"
+                implicitWidth: 24; implicitHeight: 26
+                VIcon {
+                    anchors.centerIn: parent
+                    name: "vol"
+                    color: liveMuteHover.hovered ? Theme.t1 : veyra.muted ? Theme.t3 : Theme.t2
+                    opacity: veyra.muted ? 0.6 : 1
+                }
+                // Muted: a slash through the speaker.
+                Rectangle {
+                    visible: veyra.muted
+                    anchors.centerIn: parent
+                    width: 2; height: 18; radius: 1
+                    rotation: -45
+                    color: Theme.t2
+                }
+                HoverHandler { id: liveMuteHover; cursorShape: Qt.PointingHandCursor }
+                TapHandler { onTapped: veyra.muted = !veyra.muted }
+                ToolTip.visible: liveMuteHover.hovered
+                ToolTip.text: veyra.muted ? qsTr("Unmute") : qsTr("Mute")
+            }
+            VSlider {
+                id: liveVolume
+                objectName: "pro-live-volume"
+                Layout.preferredWidth: 96
+                Layout.preferredHeight: 26
+                from: 0; to: 1; value: veyra.volume; inputScale: 100
+                valueFromModel: true
+                fullKnobHitArea: true
+                onMoved: moved => { veyra.volume = moved; if (veyra.muted && moved > 0) veyra.muted = false }
+            }
+            Text {
+                text: veyra.muted ? qsTr("Muted") : Math.round(veyra.volume * 100) + "%"
+                color: Theme.t2
+                font.family: Theme.fontMono
+                font.pixelSize: 11
+                Layout.preferredWidth: 38
+            }
+            Rectangle { implicitWidth: 1; implicitHeight: 16; color: Theme.stroke2 }
             Item {
                 objectName: "pro-live-fullscreen"
                 implicitWidth: 26; implicitHeight: 26
@@ -1145,11 +1208,33 @@ VPage {
                         VSpinner { anchors.centerIn: parent; visible: veyra.displayChecking }
                     }
                 }
+                // Fork: moved here from the header: what is playing, with its menu.
+                VButton {
+                    id: signalSourceBtn
+                    objectName: "pro-signal-source-button"
+                    Layout.maximumWidth: meter1.width - 28
+                    iconName: sourceBtn.iconName
+                    text: sourceBtn.text
+                    maxTextWidth: Math.max(36, meter1.width - 28 - 64)
+                    trailingIcon: "down"
+                    onClicked: sourceMenu.openAt(this, "down")
+                }
                 GridLayout {
                     Layout.fillWidth: true
                     columns: 2
                     columnSpacing: 14
                     rowSpacing: 4
+                    // Fork: the header's format tag ("1080p60 · YUY2 · SDR"), reported values only.
+                    Text { text: qsTr("Format"); color: Theme.t3; font.family: Theme.fontUi; font.pixelSize: 12 }
+                    Text {
+                        objectName: "pro-signal-format"
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 0
+                        text: veyra.sourceFormatText.length > 0 ? veyra.sourceFormatText : qsTr("未打开")
+                        color: Theme.t1; font.family: Theme.fontMono; font.pixelSize: 12
+                        horizontalAlignment: Text.AlignRight
+                        elide: Text.ElideLeft
+                    }
                     Text { text: qsTr("输入"); color: Theme.t3; font.family: Theme.fontUi; font.pixelSize: 12 }
                     Text {
                         Layout.fillWidth: true
@@ -2693,7 +2778,7 @@ VPage {
 
     // Test hook (--menu, motion probe "menu"): open a header menu from its button.
     function openTestMenu(name) {
-        if (name === "source") sourceMenu.openAt(sourceBtn, "down")
+        if (name === "source") sourceMenu.openAt(root.sourceInSignal ? signalSourceBtn : sourceBtn, "down")
         else if (name === "preset") presetMenu.openAt(presetBtn, "down")
     }
     readonly property real testMenuScale: sourceMenu.motionScale
