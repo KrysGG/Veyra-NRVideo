@@ -24,6 +24,8 @@ Rectangle {
     property bool open: false
     // [{ label, count, open }] — nested groups, as the design draws them.
     property var groups: []
+    // Fork: what this feature is for and how to troubleshoot it, behind a round "i".
+    property string info: ""
     signal toggled(bool on)
     signal headerClicked()
     // A brief accent pulse on the border: "here it is" after 处理顺序 locates a card.
@@ -161,6 +163,15 @@ Rectangle {
                     }
                 }
 
+                VInfo {
+                    id: headerInfo
+                    objectName: acc.objectName.length > 0 ? acc.objectName + "-info" : "acc-info"
+                    host: acc
+                    offsetY: acc.headerHeight
+                    title: acc.title
+                    text: acc.info
+                }
+
                 RowLayout {
                     id: headerTools
                     spacing: 2
@@ -187,7 +198,7 @@ Rectangle {
 
             HoverHandler { cursorShape: Qt.PointingHandCursor }
             TapHandler { onTapped: point => {
-                for (const tools of [leadingTools, headerTools]) {
+                for (const tools of [leadingTools, headerTools, headerInfo]) {
                     const p = tools.mapFromItem(parent, point.position.x, point.position.y)
                     if (tools.visible && p.x >= 0 && p.x <= tools.width
                             && p.y >= 0 && p.y <= tools.height) return

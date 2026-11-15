@@ -837,6 +837,57 @@ QVariantMap QmlPlayerBridge::effectDescriptor(const QString& type) const {
 }
 
 // --- presets ----------------------------------------------------------------
+// Fork: a saved preset also remembers the hardware and display choices that are
+// not part of the chain: which GPU runs super resolution and which runs frame
+// generation, GPU priority, VFG auto regulation, Edge Aegis and the presentation
+// settings (display sync, NVIDIA low latency, output cap, variable refresh). They
+// are kept beside the preset library in the interface preferences, keyed by the
+// preset's name, so the preset file format is unchanged.
+namespace {
+const QString kPresetHardware = QStringLiteral("presetHardware");
+const QStringList kPresetHardwareKeys{QStringLiteral("monitorGpu"), QStringLiteral("computeOnMonitorGpu"),
+    QStringLiteral("fgGpu"), QStringLiteral("gpuPriority"), QStringLiteral("edgeAegis"),
+    QStringLiteral("vfgAutoRegulate"), QStringLiteral("presentation")};
+}
+void QmlPlayerBridge::rememberPresetHardware(const QString& name) {
+    QVariantMap snapshot;
+    for (const auto& key : kPresetHardwareKeys)
+        if (impl_->prefs.contains(key)) snapshot[key] = impl_->prefs.value(key);
+    auto all = impl_->prefs.value(kPresetHardware).toMap();
+    all[name] = snapshot;
+    impl_->prefs[kPresetHardware] = all;
+    if (!impl_->savePrefs()) veyra::log::warn("ui-prefs", "preset hardware choices not saved");
+}
+void QmlPlayerBridge::forgetPresetHardware(const QString& name, const QString& renamedTo) {
+    auto all = impl_->prefs.value(kPresetHardware).toMap();
+    if (!all.contains(name)) return;
+    const auto snapshot = all.take(name);
+    if (!renamedTo.isEmpty()) all[renamedTo] = snapshot;
+    impl_->prefs[kPresetHardware] = all;
+    if (!impl_->savePrefs()) veyra::log::warn("ui-prefs", "preset hardware choices not updated");
+}
+void QmlPlayerBridge::applyPresetHardware(const QString& name) {
+    const auto snapshot = impl_->prefs.value(kPresetHardware).toMap().value(name).toMap();
+    if (snapshot.isEmpty()) return;
+    // GPUs first: an adapter that is no longer installed is refused by
+    // setPreference and the current choice stays.
+    for (const auto& key : {QStringLiteral("monitorGpu"), QStringLiteral("fgGpu")})
+        if (snapshot.contains(key)) setPreference(key, snapshot.value(key));
+    for (const auto& key : {QStringLiteral("computeOnMonitorGpu"), QStringLiteral("gpuPriority")})
+        if (snapshot.contains(key)) setPreference(key, snapshot.value(key));
+    if (snapshot.contains(QStringLiteral("edgeAegis"))) setEdgeAegis(snapshot.value(QStringLiteral("edgeAegis")).toBool());
+    if (snapshot.contains(QStringLiteral("vfgAutoRegulate"))) setVfgAutoRegulate(snapshot.value(QStringLiteral("vfgAutoRegulate")).toBool());
+    const auto p = snapshot.value(QStringLiteral("presentation")).toMap();
+    if (!p.isEmpty()) {
+        if (p.contains(QStringLiteral("nvidiaLowLatency"))) setNvidiaLowLatency(p.value(QStringLiteral("nvidiaLowLatency")).toInt());
+        if (!nvidiaLowLatencyAvailable() && p.contains(QStringLiteral("lowQueue"))) setFgLowQueue(p.value(QStringLiteral("lowQueue")).toBool());
+        if (p.contains(QStringLiteral("display"))) setDisplaySync(p.value(QStringLiteral("display")).toInt());
+        if (p.contains(QStringLiteral("customFps"))) setOutputCustomFps(p.value(QStringLiteral("customFps")).toDouble());
+        if (p.contains(QStringLiteral("outputRate"))) setOutputRateMode(p.value(QStringLiteral("outputRate")).toInt());
+        if (p.contains(QStringLiteral("vrr"))) setVariableRefresh(p.value(QStringLiteral("vrr")).toBool());
+    }
+    veyra::log::info("qml-preset", "applied saved GPU and display choices for preset " + name.toStdString());
+}
 bool QmlPlayerBridge::applyPresetIndex(int index) {
     if (index < 0 || size_t(index) >= impl_->facade.presets().entries().size()) return false;
     const auto mode = impl_->chain.mode;
@@ -909,6 +960,7 @@ bool QmlPlayerBridge::applyPresetIndex(int index) {
     }
     emit settingsChanged();
     emitChainChanged();
+    applyPresetHardware(QString::fromStdWString(entry.name));
     return true;
 }
 
@@ -970,6 +1022,7 @@ bool QmlPlayerBridge::savePresetAs(const QString& name, int contentsMask, bool n
     }
     entry.flow = engine::PresetFlowSettings::capture(settings());
     const bool ok = impl_->facade.savePreset(entry, false);
+    if (ok) rememberPresetHardware(name);
     if (ok) emit presetsChanged();
     else emit notice(tr("保存预设失败: %1").arg(uiText(impl_->facade.error())), true);
     return ok;
@@ -980,7 +1033,9 @@ bool QmlPlayerBridge::deletePreset(int index) {
     const auto& entry = impl_->facade.presets().entries()[size_t(index)];
     if (entry.builtin) { emit notice(tr("内置预设不能删除，可以另存一份"), true); return false; }
     const bool selected = impl_->exportPresetName == entry.name;
+    const QString erasedName = QString::fromStdWString(entry.name);
     const bool ok = impl_->facade.presets().erase(size_t(index));
+    if (ok) forgetPresetHardware(erasedName);
     if (ok) {
         if (selected) { impl_->exportPresetName.clear(); emit exportChanged(); }
         emit presetsChanged();
@@ -991,7 +1046,9 @@ bool QmlPlayerBridge::deletePreset(int index) {
 bool QmlPlayerBridge::renamePreset(int index, const QString& name) {
     if (index < 0 || size_t(index) >= impl_->facade.presets().entries().size()) return false;
     const bool selected = impl_->exportPresetName == impl_->facade.presets().entries()[size_t(index)].name;
+    const QString oldName = QString::fromStdWString(impl_->facade.presets().entries()[size_t(index)].name);
     const bool ok = impl_->facade.presets().rename(size_t(index), wideOf(name));
+    if (ok && oldName != name) forgetPresetHardware(oldName, name);
     if (ok) {
         if (selected) { impl_->exportPresetName = wideOf(name); emit exportChanged(); }
         emit presetsChanged();

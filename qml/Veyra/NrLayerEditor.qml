@@ -90,8 +90,11 @@ ColumnLayout {
         }
     }
 
-    RowLayout {
+    // A Flow, not a RowLayout: three fixed-width buttons forced the whole layer
+    // card wider than a narrow panel and cut every row off on the right.
+    Flow {
         Layout.fillWidth: true
+        spacing: 6
         visible: editor.listControls
         VButton {
             objectName: "nr-copy"

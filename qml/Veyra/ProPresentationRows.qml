@@ -10,6 +10,7 @@ ColumnLayout {
     spacing: 0
     VRow {
         label: qsTr("显示同步")
+        info: qsTr("Auto: no tearing and no VSync wait (best latency). VSync: every frame waits for the screen refresh, at most one refresh of extra delay, very even pacing. Allow tearing: lowest latency but tear lines may show.")
         hint: qsTr("自动（推荐）：不撕裂，也不等待垂直同步，每次刷新显示最新一帧，延迟最低 · 垂直同步：每帧都等到刷新才显示，比自动多等最多一个刷新 · 允许撕裂：可能出现撕裂线")
         VSeg {
             objectName: "presentation-display-sync"
@@ -23,6 +24,7 @@ ColumnLayout {
     // card asks the driver again.
     VRow {
         label: qsTr("可变刷新")
+        info: qsTr("G-SYNC / FreeSync: the screen refreshes when a frame is ready. Removes both tearing and VSync wait when your monitor and driver support it.")
         hint: veyra.vrrHint
         VSwitch {
             objectName: "presentation-vrr"
@@ -34,6 +36,7 @@ ColumnLayout {
     }
     VRow {
         label: qsTr("输出上限")
+        info: qsTr("Caps how many frames per second Veyra shows. Off is right for most setups. Follow the display can help keep pacing even when frame generation produces more frames than your screen can show.")
         enabled: !veyra.presentationOwned
         hint: veyra.presentationStatus
         VSeg {

@@ -683,15 +683,18 @@ ColumnLayout {
         }
         VRow {
             label: qsTr("1% low")
+            info: qsTr("A good result is within about 5% of the submit rate (for example 114+ at 120). A much lower 1% low means stutter: check the GPU stages and load budget.")
             hint: qsTr("最近 10 秒里最慢的 1% 提交间隔折算的帧率，和 RTSS 等叠加工具的算法相同")
             value: veyra.submitLowFpsKnown ? veyra.submitLowFps.toFixed(2) : "—"
         }
         VRow {
             label: qsTr("晚点 P95")
+            info: qsTr("How late the slowest 5% of frames reached the screen. Near 0 ms is ideal; several ms means the GPUs are not keeping up.")
             value: veyra.lateP95Ms.toFixed(2) + " ms"
         }
         VRow {
             label: qsTr("调度等待 P95")
+            info: qsTr("Time frames spent waiting for their slot. With VSync and frame generation some waiting is normal: it is time spent waiting for the right moment, not GPU work, and it does not mean the GPUs are overloaded.")
             value: veyra.scheduleP95Ms.toFixed(2) + " ms"
         }
     }

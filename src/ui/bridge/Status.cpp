@@ -299,7 +299,7 @@ QString QmlPlayerBridge::fgGpuStatus() const {
         return tr("Fell back to the super resolution GPU") + (why.isEmpty() ? QString() : QStringLiteral(": ") + why) + QStringLiteral(".");
     }
     default:
-        return tr("Ready: %1 takes over NVIDIA VFG when a source opens. Use 中 or 中+低 quality, or turn on VFG 自动调控.").arg(fgGpuName());
+        return tr("Ready: %1 takes over NVIDIA VFG when a source opens. Use Medium or Medium+Low quality, or turn on VFG auto regulation.").arg(fgGpuName());
     }
 }
 QVariantList QmlPlayerBridge::gpuUsages() const {

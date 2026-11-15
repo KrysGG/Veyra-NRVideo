@@ -327,7 +327,7 @@ VPage {
                                     { id: "en", label: "English" },
                                     { id: "ja", label: qsTr("日本語") }
                                 ]
-                                value: (options.find(o => o.id === (veyra.preferences.language || "auto")) || options[0]).label
+                                value: (options.find(o => o.id === (veyra.preferences.language || "en")) || options[0]).label
                                 onPicked: id => veyra.setPreference("language", id)
                             }
                         }

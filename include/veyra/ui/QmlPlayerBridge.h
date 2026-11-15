@@ -1436,6 +1436,12 @@ public:
     Q_INVOKABLE bool renamePreset(int index, const QString& name);
     Q_INVOKABLE bool duplicatePreset(int index);
     Q_INVOKABLE bool setDefaultPreset(int index);
+private:
+    // Fork: GPU and display choices saved beside each preset (bridge/Chain.cpp).
+    void rememberPresetHardware(const QString& name);
+    void forgetPresetHardware(const QString& name, const QString& renamedTo = QString());
+    void applyPresetHardware(const QString& name);
+public:
 
     Q_INVOKABLE void refreshRecentFiles();
     Q_INVOKABLE void clearRecentFiles();

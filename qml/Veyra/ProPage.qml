@@ -74,6 +74,45 @@ VPage {
 
     // Design's st.tab: quality / fg / color / audio / display.
     property string tab: "quality"
+    readonly property var inspectorTabs: [
+        { id: "quality", label: qsTr("画质"), icon: "sparkles" },
+        { id: "fg", label: qsTr("补帧"), icon: "layers" },
+        { id: "color", label: qsTr("色彩"), icon: "palette" },
+        { id: "audio", label: qsTr("声音"), icon: "music" },
+        { id: "display", label: qsTr("显示"), icon: "monitor" }
+    ]
+    readonly property bool hintsShown: veyra.preferences.showHints === true
+    readonly property bool stageGuideOpen: veyra.preferences.stageGuideOpen !== false
+    // Typical stage times come from a 1080p 30 fps PS5 capture upscaled to 1440p
+    // with one NR layer and 4X VFG on an RTX 3090 (SR) + RTX 5080 (FG) split.
+    readonly property string stageGuideText: {
+        const budget = veyra.stageBudgetMs > 0 ? veyra.stageBudgetMs.toFixed(1) + " ms" : qsTr("one source frame")
+        return "<b>" + qsTr("Budget") + "</b> " + qsTr("Everything above must finish within %1 per source frame. Stay under about 70% (green orbs) so the occasional heavy frame does not stutter.").arg(budget)
+            + "<br><br><b>" + qsTr("Typical stage times") + "</b> " + qsTr("(1080p30 capture, 1440p output, 4X frame generation)")
+            + "<br>• " + qsTr("Input and HDR: under 1 ms each")
+            + "<br>• " + qsTr("Super resolution: 1–4 ms (double SR roughly doubles it)")
+            + "<br>• " + qsTr("Optical flow: about 1 ms")
+            + "<br>• " + qsTr("NR: 2–4 ms per 1080p layer")
+            + "<br>• " + qsTr("Frame generation: 2–6 ms, more at higher multiplier or quality")
+            + "<br><br><b>" + qsTr("Over budget? Lower these first") + "</b>"
+            + "<br>1. " + qsTr("Turn off double super resolution")
+            + "<br>2. " + qsTr("Lower the SR tier or target size to your screen size")
+            + "<br>3. " + qsTr("NR: one layer, internal resolution 720p")
+            + "<br>4. " + qsTr("VFG quality Low; multiplier no higher than your refresh rate needs")
+            + "<br>5. " + qsTr("With two GPUs, put frame generation on the stronger card")
+            + "<br><br><b>" + qsTr("How much delay is noticeable?") + "</b> "
+            + qsTr("Frame generation holds back one real frame (about 33 ms for a 30 fps game) so it can draw the frames in between, and processing adds its stage time on top. Research on players suggests:")
+            + "<br>• " + qsTr("Under about 50 ms added: feels native for most players. Driving-game lap times only start to suffer above 50 ms.")
+            + "<br>• " + qsTr("50–100 ms: noticeable to some players when aiming; still fine for a third-person game like GTA.")
+            + "<br>• " + qsTr("Over about 120 ms: most players call it too much; median player surveyed noticed about 40 ms and tolerated about 120 ms.")
+            + "<br>• " + qsTr("Third-person games tolerate far more than first-person shooters (studies put first-person at about 100 ms, third-person around 500 ms before play suffers).")
+            + "<br><br>" + qsTr("Keep NVIDIA low latency on, Display sync on Auto or VSync, and a load under 70% for the lowest delay.")
+            + "<br><br>" + qsTr("Sources:") + " <a href=\"https://web.cs.wpi.edu/~claypool/papers/precision-deadline/final.pdf\">Claypool &amp; Claypool, CACM 2006</a> · "
+            + "<a href=\"https://ftp.cs.wpi.edu/pub/techreports/pdf/20-02.pdf\">WPI player latency survey, CHI PLAY 2020</a>"
+    }
+    // The software interface renderer has no shader effects: blur falls back to a frost.
+    readonly property bool softwareRendering: (typeof vySoftwareUi !== "undefined" && vySoftwareUi)
+        || GraphicsInfo.api === GraphicsInfo.Software
     property int selectedEffect: -1
     // 处理顺序 "点击定位": switch to the chip's tab, open its card and scroll
     // the inspector so the card sits at the top.
@@ -945,7 +984,71 @@ VPage {
                     }
                 }
                 }
-                Item { Layout.fillHeight: true }
+                // Fork: a collapsible tuning guide in the room under the stage
+                // bars: what each stage typically costs, which settings to lower
+                // first, and how much added delay players notice (with sources).
+                Rectangle {
+                    objectName: "pro-stage-guide-head"
+                    Layout.fillWidth: true
+                    Layout.topMargin: 4
+                    implicitHeight: 1
+                    color: Theme.stroke
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
+                    VIcon { name: "gauge"; size: 13; color: Theme.t3 }
+                    Text {
+                        Layout.fillWidth: true
+                        text: qsTr("Tuning guide · targets and latency")
+                        color: Theme.t2
+                        font.family: Theme.fontUi
+                        font.pixelSize: 11
+                        elide: Text.ElideRight
+                    }
+                    Text {
+                        visible: veyra.chainTotalMsKnown && veyra.stageBudgetMs > 0
+                        readonly property real load: veyra.stageBudgetMs > 0 ? veyra.chainTotalMs / veyra.stageBudgetMs : 0
+                        text: Math.round(load * 100) + "% " + qsTr("of budget")
+                        color: load < 0.7 ? Theme.ok : load < 1.0 ? Theme.warn : Theme.err
+                        font.family: Theme.fontMono
+                        font.pixelSize: 11
+                    }
+                    VIcon {
+                        name: "down"; size: 13; color: Theme.t3
+                        rotation: root.stageGuideOpen ? 180 : 0
+                        Behavior on rotation { NumberAnimation { duration: Theme.d(250) } }
+                    }
+                    HoverHandler { cursorShape: Qt.PointingHandCursor }
+                    TapHandler { onTapped: veyra.setPreference("stageGuideOpen", !root.stageGuideOpen) }
+                }
+                Flickable {
+                    id: guideFlick
+                    objectName: "pro-stage-guide"
+                    visible: root.stageGuideOpen
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.minimumHeight: 0
+                    contentHeight: guideText.implicitHeight + 4
+                    clip: true
+                    boundsBehavior: Flickable.StopAtBounds
+                    ScrollBar.vertical: VScrollBar {}
+                    Text {
+                        id: guideText
+                        width: guideFlick.width - 12
+                        wrapMode: Text.Wrap
+                        textFormat: Text.StyledText
+                        color: Theme.t2
+                        linkColor: Theme.accent
+                        font.family: Theme.fontUi
+                        font.pixelSize: 11
+                        lineHeight: 1.1
+                        onLinkActivated: link => Qt.openUrlExternally(link)
+                        HoverHandler { cursorShape: parent.hoveredLink.length > 0 ? Qt.PointingHandCursor : Qt.ArrowCursor }
+                        text: root.stageGuideText
+                    }
+                }
+                Item { Layout.fillHeight: true; visible: !root.stageGuideOpen }
             }
         }
 
@@ -1067,12 +1170,28 @@ VPage {
     // --- inspector (376px by default, rows 2-3) ----------------------------
     // The panel can be widened by dragging the gap between it and the picture
     // (field request 2026-10-05); the width is remembered, a double click on the
-    // gap returns to the design's 376px. It never goes narrower than that, and
-    // the picture keeps at least 640px, where the meters under it still read.
-    readonly property real inspectorMax: Math.max(376, root.width - 14 * 2 - 10 - 640)
+    // gap returns to the design's 376px. The picture keeps at least 480px.
+    // Fork: the panel can also be narrowed to 300px, and collapsed to a slim rail
+    // of tab icons (the chevron at the end of the tab row, or a click on the gap
+    // while collapsed). While the gap is dragged the panel content is blurred and
+    // a guide shows the new edge; the picture is resized once, on release, so the
+    // video window does not re-layout on every pointer move.
+    readonly property int inspectorMinWidth: 300
+    readonly property int inspectorRailWidth: 52
+    readonly property bool inspectorCollapsed: !root.overlay && veyra.preferences.listInspectorCollapsed === true
+    readonly property real inspectorMax: Math.max(inspectorMinWidth, root.width - 14 * 2 - 10 - 480)
     property real inspectorDrag: -1
-    readonly property real inspectorWidth: Math.max(376, Math.min(inspectorMax,
-        inspectorDrag >= 0 ? inspectorDrag : Number(veyra.preferences.listInspectorWidth || 376)))
+    readonly property real inspectorOpenWidth: Math.max(inspectorMinWidth, Math.min(inspectorMax,
+        Number(veyra.preferences.listInspectorWidth || 376)))
+    readonly property real inspectorWidth: inspectorCollapsed ? inspectorRailWidth : inspectorOpenWidth
+    readonly property bool inspectorResizing: inspectorSplit.pressed && inspectorDrag >= 0
+    function setInspectorCollapsed(collapsed) {
+        veyra.setPreference("listInspectorCollapsed", collapsed)
+    }
+    function openInspectorTab(id) {
+        root.tab = id
+        if (root.inspectorCollapsed) setInspectorCollapsed(false)
+    }
     MouseArea {
         id: inspectorSplit
         objectName: "pro-inspector-split"
@@ -1081,36 +1200,44 @@ VPage {
         y: insp.y
         width: 10
         height: insp.height
-        cursorShape: Qt.SplitHCursor
+        cursorShape: root.inspectorCollapsed ? Qt.PointingHandCursor : Qt.SplitHCursor
         hoverEnabled: true
         preventStealing: true
         property real pressX: 0
         property real pressWidth: 0
+        property bool moved: false
         onPressed: mouse => {
+            moved = false
+            if (root.inspectorCollapsed) return
             pressX = mapToItem(root, mouse.x, 0).x
             pressWidth = root.inspectorWidth
             root.inspectorDrag = pressWidth
         }
         onPositionChanged: mouse => {
-            if (!pressed) return
-            root.inspectorDrag = Math.max(376, Math.min(root.inspectorMax, pressWidth - (mapToItem(root, mouse.x, 0).x - pressX)))
+            if (!pressed || root.inspectorCollapsed) return
+            const dx = mapToItem(root, mouse.x, 0).x - pressX
+            if (Math.abs(dx) > 2) moved = true
+            root.inspectorDrag = Math.max(root.inspectorMinWidth, Math.min(root.inspectorMax, pressWidth - dx))
         }
         onReleased: {
-            const width = Math.round(root.inspectorWidth)
+            if (root.inspectorCollapsed) { root.setInspectorCollapsed(false); return }
+            const width = Math.round(root.inspectorDrag)
             root.inspectorDrag = -1
-            veyra.setPreference("listInspectorWidth", width)
+            if (moved) veyra.setPreference("listInspectorWidth", width)
         }
         onCanceled: root.inspectorDrag = -1
-        onDoubleClicked: veyra.setPreference("listInspectorWidth", 376)
-        // A hairline handle while the pointer is on the gap.
+        onDoubleClicked: if (!root.inspectorCollapsed) veyra.setPreference("listInspectorWidth", 376)
+        // A hairline handle: faint at rest so the gap reads as draggable, bright
+        // while the pointer is on it.
         Rectangle {
             anchors.centerIn: parent
             width: 3
-            height: 36
+            height: inspectorSplit.containsMouse || inspectorSplit.pressed ? 44 : 28
             radius: 1.5
             color: inspectorSplit.pressed ? Theme.accent : Qt.rgba(1, 1, 1, 0.28)
-            opacity: inspectorSplit.containsMouse || inspectorSplit.pressed ? 1 : 0
+            opacity: inspectorSplit.containsMouse || inspectorSplit.pressed ? 1 : 0.35
             Behavior on opacity { NumberAnimation { duration: Theme.d(150) } }
+            Behavior on height { NumberAnimation { duration: Theme.d(180); easing.type: Easing.OutCubic } }
         }
         // Beside the pointer: the attached tip sat at the top of this full-height strip.
         ToolTip {
@@ -1118,7 +1245,43 @@ VPage {
             delay: 600
             x: -implicitWidth - 6
             y: inspectorSplit.mouseY + 16
-            text: qsTr("拖动调整参数面板宽度 · 双击还原")
+            text: root.inspectorCollapsed ? qsTr("Click to expand the settings panel")
+                                          : qsTr("Drag to resize the settings panel · double-click to reset")
+        }
+    }
+    // The drag guide: where the panel's left edge will land, with its width.
+    // A cover, so it shows over the picture too.
+    Rectangle {
+        id: inspectorGhost
+        objectName: "pro-inspector-ghost"
+        z: 5
+        readonly property bool videoCover: visible
+        readonly property real coverRadius: radius
+        visible: root.inspectorResizing
+        anchors.right: insp.right
+        y: insp.y
+        width: root.inspectorDrag
+        height: insp.height
+        radius: Theme.rCard
+        color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.06)
+        border.width: 1
+        border.color: Theme.accent
+        Rectangle {
+            anchors.centerIn: parent
+            width: ghostLabel.implicitWidth + 20
+            height: 26
+            radius: 13
+            color: Theme.popover
+            border.width: 1
+            border.color: Theme.stroke2
+            Text {
+                id: ghostLabel
+                anchors.centerIn: parent
+                text: Math.round(root.inspectorDrag) + " px"
+                color: Theme.t1
+                font.family: Theme.fontMono
+                font.pixelSize: 12
+            }
         }
     }
     // Performance orbs beside the quick-adjust panel (fullscreen only).
@@ -1177,44 +1340,133 @@ VPage {
         // A click on the panel's own background is not a click on the picture.
         MouseArea { anchors.fill: parent; acceptedButtons: Qt.AllButtons; onWheel: wheel => wheel.accepted = true }
 
+        // The collapsed rail: one icon per tab, and the chevron that opens the panel.
         ColumnLayout {
+            id: inspRail
+            objectName: "pro-inspector-rail"
+            visible: root.inspectorCollapsed
+            opacity: visible ? 1 : 0
+            Behavior on opacity { NumberAnimation { duration: Theme.d(180) } }
+            anchors.top: parent.top
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.topMargin: 8
+            spacing: 4
+            Repeater {
+                model: root.inspectorTabs
+                delegate: Rectangle {
+                    required property var modelData
+                    objectName: "pro-rail-" + modelData.id
+                    implicitWidth: 36; implicitHeight: 36
+                    radius: 10
+                    color: root.tab === modelData.id ? Theme.card3 : railHover.hovered ? Qt.rgba(1, 1, 1, 0.05) : "transparent"
+                    Behavior on color { ColorAnimation { duration: Theme.d(150) } }
+                    VIcon {
+                        anchors.centerIn: parent
+                        name: modelData.icon
+                        size: 16
+                        color: root.tab === modelData.id ? Theme.t1 : Theme.t2
+                    }
+                    HoverHandler { id: railHover; cursorShape: Qt.PointingHandCursor }
+                    TapHandler { onTapped: root.openInspectorTab(modelData.id) }
+                    ToolTip.visible: railHover.hovered
+                    ToolTip.delay: 300
+                    ToolTip.text: modelData.label
+                }
+            }
+            Rectangle { Layout.alignment: Qt.AlignHCenter; implicitWidth: 20; implicitHeight: 1; color: Theme.stroke2 }
+            VButton {
+                objectName: "pro-inspector-expand"
+                Layout.alignment: Qt.AlignHCenter
+                icon: true; ghost: true; iconName: "left"
+                tip: qsTr("Expand the settings panel")
+                onClicked: root.setInspectorCollapsed(false)
+            }
+        }
+
+        // Frost over the content while the edge is dragged (with or without blur).
+        Rectangle {
+            anchors.fill: parent
+            z: 3
+            radius: insp.radius
+            visible: opacity > 0
+            opacity: root.inspectorResizing ? (root.softwareRendering ? 0.72 : 0.35) : 0
+            Behavior on opacity { NumberAnimation { duration: Theme.d(160) } }
+            color: Theme.card
+        }
+
+        ColumnLayout {
+            id: inspContent
+            visible: !root.inspectorCollapsed
             anchors.fill: parent
             anchors.leftMargin: root.tab === "color" ? insp.border.width : 0
             anchors.rightMargin: root.tab === "color" ? insp.border.width : 0
             spacing: 0
+            // While the panel edge is being dragged the content is frosted: the
+            // layout settles once, on release, instead of reflowing on every move.
+            layer.enabled: root.inspectorResizing && !root.softwareRendering
+            layer.effect: MultiEffect {
+                blurEnabled: true
+                blur: 0.7
+                blurMax: 32
+                saturation: -0.2
+            }
 
-            // .insp-tabs: five tabs, equal width, 30px, radius 9.
+            // .insp-tabs: five tabs, equal width, 30px, radius 9. Fork: labels
+            // shrink and elide in a narrow panel; the row ends with the
+            // descriptions toggle and the collapse chevron.
             RowLayout {
                 Layout.fillWidth: true
                 Layout.margins: 8
                 spacing: 2
                 Repeater {
-                    model: [
-                        { id: "quality", label: qsTr("画质") },
-                        { id: "fg", label: qsTr("补帧") },
-                        { id: "color", label: qsTr("色彩") },
-                        { id: "audio", label: qsTr("声音") },
-                        { id: "display", label: qsTr("显示") }
-                    ]
+                    model: root.inspectorTabs
                     delegate: Rectangle {
                         required property var modelData
+                        objectName: "pro-tab-" + modelData.id
                         Layout.fillWidth: true
+                        Layout.minimumWidth: 0
+                        implicitWidth: tabLabel.implicitWidth + 16
                         implicitHeight: 30
                         radius: 9
                         color: root.tab === modelData.id ? Theme.card3
                              : tabHover.hovered ? Qt.rgba(1, 1, 1, 0.04) : "transparent"
                         Behavior on color { ColorAnimation { duration: Theme.d(200) } }
                         Text {
+                            id: tabLabel
                             anchors.centerIn: parent
+                            width: Math.min(implicitWidth, parent.width - 8)
+                            horizontalAlignment: Text.AlignHCenter
                             text: modelData.label
                             color: root.tab === modelData.id ? Theme.t1 : Theme.t2
                             font.family: Theme.fontUi
                             font.pixelSize: Theme.fsBody
                             font.weight: Font.Medium
+                            fontSizeMode: Text.HorizontalFit
+                            minimumPixelSize: 11
+                            elide: Text.ElideRight
                         }
                         HoverHandler { id: tabHover; cursorShape: Qt.PointingHandCursor }
                         TapHandler { onTapped: root.tab = modelData.id }
+                        ToolTip.visible: tabHover.hovered && tabLabel.truncated
+                        ToolTip.text: modelData.label
                     }
+                }
+                VButton {
+                    objectName: "pro-inspector-hints"
+                    implicitWidth: 26; implicitHeight: 26
+                    icon: true; ghost: !root.hintsShown; primary: false
+                    iconName: "info"
+                    tip: root.hintsShown ? qsTr("Hide descriptions (keep them behind the i buttons)")
+                                         : qsTr("Show all descriptions under the settings")
+                    onClicked: veyra.setPreference("showHints", !root.hintsShown)
+                }
+                VButton {
+                    objectName: "pro-inspector-collapse"
+                    visible: !root.overlay
+                    implicitWidth: 26; implicitHeight: 26
+                    icon: true; ghost: true; iconName: "right"
+                    tip: qsTr("Collapse the settings panel")
+                    onClicked: root.setInspectorCollapsed(true)
                 }
             }
 
@@ -1336,6 +1588,7 @@ VPage {
                             glyph: "type"
                             hue: "#7FD4FF"
                             title: qsTr("抗锯齿")
+                            info: qsTr("Smooths jagged edges at the source size, before super resolution enlarges them. Costs little GPU time. Leave it off for a PS5 capture unless you see stair-stepping on thin lines; the console already anti-aliases most games.")
                             summary: veyra.antiAliasEnabled ? veyra.antiAliasParams.summary : qsTr("已关闭")
                             on: veyra.antiAliasEnabled
                             onToggled: on => veyra.antiAliasEnabled = on
@@ -1353,6 +1606,7 @@ VPage {
                             glyph: "sparkles"
                             hue: "#4F7BFF"
                             title: qsTr("超分辨率")
+                            info: qsTr("Upscales the captured picture to a sharper, larger image. On a split setup it runs on the Super resolution GPU together with capture and NR.<br><br><b>Troubleshooting:</b> if the SR bar in GPU stages is above about half the frame budget, lower the tier or the target size, or turn off double super resolution.")
                             switchAvailable: Support.available(veyra, "sr")
                             summary: !switchAvailable ? Support.reason(veyra, "sr") : (veyra.srEnabled ? (veyra.srBackendChoices?.find(o => o.id === veyra.srAlgorithmOf(veyra.videoSrQuality))?.label || qsTr("RTX 视频超分")) : qsTr("已关闭"))
                                      + " · " + veyra.srTargetLabel
@@ -1375,6 +1629,7 @@ VPage {
 
                             VRow {
                                 label: qsTr("Super resolution GPU")
+                                info: qsTr("Pick the GPU that does capture, NR, super resolution and presentation. With two GPUs, put this on the card your monitor is plugged into, and frame generation on the other one.<br><br>Changes apply after the source is reopened. If the picture stays black, set this back to Auto.")
                                 hint: qsTr("Capture, NR, super resolution and presentation run on this GPU. Reopen the source to apply")
                                 VSelect {
                                     objectName: "list-sr-gpu"
@@ -1386,6 +1641,7 @@ VPage {
                             }
                             VRow {
                                 label: qsTr("超分算法")
+                                info: qsTr("RTX Video SR is the lightest and works on RTX 20 and newer. DLSS SR and FSR use more GPU time. The algorithm names describe the trade-off; Standard is a good start for a 1080p console capture.")
                                 VSelect {
                                     objectName: "list-sr-backend"
                                     implicitWidth: 210 // the RTX Video SR family names need more than the default 150
@@ -1421,6 +1677,7 @@ VPage {
                             glyph: "sun"
                             hue: "#E58BD9"
                             title: "RTX Video HDR"
+                            info: qsTr("Turns an SDR picture into HDR before frame generation. Needs Windows HDR on and an HDR monitor. Costs about 0.5 ms. If colours look washed out, check that Windows HDR is on; if they look too strong, lower Saturation or Contrast.")
                             switchAvailable: Support.available(veyra, "video-hdr")
                             summary: !switchAvailable ? Support.reason(veyra, "video-hdr") : veyra.videoHdr ? (veyra.videoHdrStatus.length > 0 ? veyra.videoHdrStatus : qsTr("已开启")) : qsTr("已关闭")
                             on: veyra.videoHdr
@@ -1468,6 +1725,7 @@ VPage {
                             glyph: "wand"
                             hue: Theme.accent
                             title: qsTr("NR 画面增强")
+                            info: qsTr("NVIDIA neural enhancement: cleans compression noise and adds detail. Each layer runs in order and costs GPU time (about 2 ms per 1080p layer on an RTX 3090).<br><br><b>Troubleshooting:</b> if frame rate drops, use one layer at 1080p or lower its internal resolution. More layers rarely look better on a game capture.")
                             summary: veyra.nrLayers.length > 0 ? veyra.nrLayers.length + qsTr(" 层依次处理 · 每层参数独立") : qsTr("未添加 NR 层")
                             // Master switch (field request 2026-10-02): every layer off
                             // at once; on again brings back the layers that were on.
@@ -1534,6 +1792,7 @@ VPage {
                                 Layout.topMargin: 4
                                 visible: veyra.nodeMode === 0
                                 title: qsTr("输出稳定器 · 抗闪烁")
+                                info: qsTr("Holds parts of the picture that did not change, to stop shimmer on static areas. Turn it on only if you see flicker on HUD or walls; too high a strength makes the picture look dull.")
                                 glyph: "shield"; hue: Theme.accent
                                 summary: veyra.nrHoldStrength > 0
                                          ? qsTr("已开启 · 强度 ") + Math.round(veyra.nrHoldStrength * 100) + "%"
@@ -1586,6 +1845,7 @@ VPage {
                                 Layout.topMargin: 4
                                 visible: veyra.nodeMode === 0
                                 title: qsTr("NR 自动推理复用")
+                                info: qsTr("When NR cannot keep up, some frames reuse the previous NR result instead of running NR again. Saves GPU time at the cost of a little detail in motion. Leave off if your load budget is under 100%.")
                                 glyph: "zap"; hue: Theme.accent
                                 summary: veyra.nrReuseMode === 0
                                          ? qsTr("默认关闭 · 跟不上时让部分帧沿用上一帧的 NR 结果")
@@ -1640,6 +1900,7 @@ VPage {
                             Layout.fillWidth: true
                             visible: veyra.nodeMode===0
                             title: qsTr("全效果剔除")
+                            info: qsTr("Draw regions where every effect is skipped and the original picture and frame cadence are shown, for example a HUD element that frame generation smears.")
                             glyph: "shield"; hue: Theme.accent
                             summary: qsTr("区域内恢复原始画面与帧率")
                             on: veyra.exclusionState.enabled===true
@@ -1731,6 +1992,7 @@ VPage {
                             glyph: "layers"
                             hue: "#3DDC84"
                             title: qsTr("补帧")
+                            info: qsTr("Creates new frames between the real ones, so a 30 fps game shows at 60, 120 or more. It always runs last, after every picture effect. Generated frames make motion smoother but do not make the game react faster: one real frame is held back so the in-between frames can be made.<br><br><b>Troubleshooting:</b> stutter or uneven pacing usually means the FG bar in GPU stages is too close to the budget. Lower the multiplier or the VFG quality, or move frame generation to the second GPU.")
                             summary: qsTr("始终在所有画质效果之后") + (veyra.fgEnabled
                                      ? " · " + veyra.fgMultiplier + "X " + (veyra.fgBackendChoices.find(o => o.id === veyra.fgBackendName) || {}).label
                                      : qsTr(" · 已关闭"))
@@ -1742,6 +2004,7 @@ VPage {
 
                             VRow {
                                 label: qsTr("补帧方式")
+                                info: qsTr("NVIDIA VFG gives the best quality on RTX 40/50 (RTX 30 support is experimental). DLSS FG needs RTX 40 or newer. FSR and XeSS work on most GPUs. If one method fails to start, the status under it explains why; try another method.")
                                 hint: veyra.fgProviderText
                                 VSelect {
                                     id: fgBackendSelect
@@ -1760,6 +2023,7 @@ VPage {
                             }
                             VRow {
                                 label: qsTr("倍率")
+                                info: qsTr("How many frames are shown per real frame. For a 30 fps game on a 120 Hz monitor, 4X fills the screen exactly; on a 60 Hz monitor 2X is enough. More than your refresh rate needs only adds load.")
                                 // Live output hint: a suggestion, the multiplier stays as chosen.
                                 hint: veyra.fgDisplayHint.length > 0 ? veyra.fgDisplayHint : veyra.fgMaxMultiplier + qsTr("X 为上限")
                                 hintColor: veyra.fgDisplayHint.length > 0 ? Theme.warn : Theme.t3
@@ -1791,6 +2055,7 @@ VPage {
                             }
                             VRow {
                                 label: qsTr("Frame generation GPU")
+                                info: qsTr("With two GPUs, frame generation can run on the second card so it never slows down capture, NR and super resolution. Use your strongest card here (for example an RTX 5080), and your other card for super resolution.<br><br>If it shows 'Fell back', the second GPU could not be used; the reason is shown and frame generation stays on the first GPU.")
                                 visible: veyra.fgBackendName === "vfg"
                                 hint: veyra.fgGpuStatus
                                 VSelect {
@@ -1803,6 +2068,7 @@ VPage {
                             }
                             VRow {
                                 label: qsTr("VFG 质量")
+                                info: qsTr("Higher quality takes longer per generated frame. Low is the safest for a steady 120 fps at 4X; try Medium if the FG bar in GPU stages has room left. Mixed tiers alternate between two levels to save time.")
                                 visible: veyra.fgBackendName === "vfg"
                                 hint: qsTr("高质量更耗时；混合档：每对原帧的中间帧用前一档，其余用后一档")
                                 VSelect {
@@ -1814,6 +2080,7 @@ VPage {
                             }
                             VRow {
                                 label: qsTr("VFG 自动调控")
+                                info: qsTr("Only for 2X with a quality above Low. When a frame pair would miss the screen refresh, that pair drops to the next faster quality instead of being late. Uses about 2 GB more video memory.")
                                 visible: veyra.fgBackendName === "vfg"
                                 enabled: veyra.vfgQuality !== 0 && veyra.fgMultiplier === 2
                                 opacity: enabled ? 1 : 0.5
@@ -1826,6 +2093,7 @@ VPage {
                             }
                             VRow {
                                 label: qsTr("严格补帧节奏")
+                                info: qsTr("Keeps generated frames evenly spaced in time. Smoother motion, but it can add a little waiting. Try it if motion looks uneven even though the frame rate is high.")
                                 hint: qsTr("帧同步 · 默认关闭")
                                 VSwitch {
                                     checked: veyra.fgStrict
@@ -1841,6 +2109,7 @@ VPage {
                                 expanded: true
                                 VRow {
                                     label: qsTr("光流算法")
+                                    info: qsTr("Optical flow measures how things move between frames; frame generation and NR use it. NVIDIA NVOF is fastest on NVIDIA cards. AMD FidelityFX works on any GPU.")
                                     hint: qsTr("补帧与 NR 共用 · 输入后计算一次")
                                     VSelect {
                                         objectName: "list-flow-choice"
@@ -1851,6 +2120,7 @@ VPage {
                                 }
                                 VRow {
                                     label: qsTr("边缘神盾")
+                                    info: qsTr("Fixes the wobble ('jelly') around characters during camera moves with DLSS, FSR and ANR frame generation. Costs very little; leave it on.")
                                     hint: qsTr("DLSS、FSR、ANR 补帧，及运动来源选“光流”的 XeSS 生效：修人物边缘果冻，背景不再被人物拖着晃")
                                     VSwitch {
                                         objectName: "list-edge-aegis"
@@ -1870,6 +2140,7 @@ VPage {
                                 }
                                 VRow {
                                     label: qsTr("运动估算质量")
+                                    info: qsTr("Performance is enough for most games and keeps latency lowest. Use Quality only if you see warping around fast-moving objects and the Optical flow bar has room.")
                                     VSeg {
                                         objectName: "list-flow-quality"
                                         options: [{ id: "0", label: qsTr("性能") }, { id: "1", label: qsTr("平衡") }, { id: "2", label: qsTr("质量") }]

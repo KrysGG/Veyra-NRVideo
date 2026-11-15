@@ -161,6 +161,9 @@ QString translatePieces(const CatalogTranslator& t, const QString& s, int depth)
 QString resolve(const QString& preference) {
     static const QStringList known{QStringLiteral("zh-CN"), QStringLiteral("zh-TW"), QStringLiteral("en"), QStringLiteral("ja")};
     if (known.contains(preference)) return preference;
+    // Fork: a fresh install (no saved choice) starts in English; "auto" still
+    // follows the Windows display language.
+    if (preference.isEmpty()) return QStringLiteral("en");
     const QLocale system = QLocale::system();
     if (system.language() == QLocale::Chinese) {
         const auto territory = system.territory();

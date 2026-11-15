@@ -67,6 +67,9 @@ using namespace veyra;
 
 namespace {
 HWND g_video = nullptr;
+// Fork: the main window, once it has the sizing frame that window managers such
+// as PowerToys FancyZones and Windows Snap look for (see allowTaskbarMinimise).
+HWND g_mainWindow = nullptr;
 bool g_videoCursorHidden = false;
 
 // The video is a foreign HWND, not a Qt item. Match the QML cursor policy here
@@ -660,6 +663,28 @@ static int runApplication(int argc, char** argv, QString& restartProgram, QStrin
                 if (result) *result = TRUE;
                 return true;
             }
+            // Fork: the main window carries WS_THICKFRAME so FancyZones and Windows
+            // Snap treat it as a normal resizable window. The frame is never drawn:
+            // the whole window stays client area, as it was when frameless. A
+            // maximised framed window hangs its border off the monitor, so its client
+            // area is pulled back to the work area.
+            if (msg->message == WM_NCCALCSIZE && g_mainWindow && msg->hwnd == g_mainWindow
+                && (GetWindowLongPtrW(msg->hwnd, GWL_STYLE) & WS_THICKFRAME) != 0) {
+                if (msg->wParam == TRUE && IsZoomed(msg->hwnd)) {
+                    auto* params = reinterpret_cast<NCCALCSIZE_PARAMS*>(msg->lParam);
+                    MONITORINFO monitor{};
+                    monitor.cbSize = sizeof(monitor);
+                    if (GetMonitorInfoW(MonitorFromWindow(msg->hwnd, MONITOR_DEFAULTTONEAREST), &monitor)) {
+                        RECT& client = params->rgrc[0];
+                        client.left = std::max(client.left, monitor.rcWork.left);
+                        client.top = std::max(client.top, monitor.rcWork.top);
+                        client.right = std::min(client.right, monitor.rcWork.right);
+                        client.bottom = std::min(client.bottom, monitor.rcWork.bottom);
+                    }
+                }
+                if (result) *result = 0;
+                return true;
+            }
             if (msg->message != WM_SYSCOMMAND || (msg->wParam & 0xFFF0) != SC_KEYMENU) return false;
             veyra::log::info("ui-window", std::format("system key menu refused (lParam=0x{:X})", unsigned(msg->lParam)));
             if (result) *result = 0;
@@ -905,13 +930,26 @@ static int runApplication(int argc, char** argv, QString& restartProgram, QStrin
     // Qt's frameless window is a bare WS_POPUP, so the click did nothing (field report).
     // The two bits add no frame or caption. Qt may rebuild the style on a fullscreen
     // switch, so it is put back on every visibility change.
+    // Fork: windowed and maximised, the window also gets a sizing frame and a
+    // maximise box. PowerToys FancyZones skips popup windows unless they have
+    // WS_THICKFRAME, WS_MINIMIZEBOX and WS_MAXIMIZEBOX, so a frameless Veyra could
+    // not be dropped into a zone. The frame adds no visible border (WM_NCCALCSIZE
+    // above keeps the whole window as client area). Fullscreen keeps the bare
+    // popup style, as before, so the fullscreen presentation path is unchanged.
+    g_mainWindow = reinterpret_cast<HWND>(window->winId());
     const auto allowTaskbarMinimise = [window] {
         const HWND hwnd = reinterpret_cast<HWND>(window->winId());
+        g_mainWindow = hwnd;
         const LONG_PTR style = GetWindowLongPtrW(hwnd, GWL_STYLE);
-        const LONG_PTR wanted = style | WS_MINIMIZEBOX | WS_SYSMENU;
+        const bool fullscreen = window->visibility() == QWindow::FullScreen;
+        LONG_PTR wanted = style | WS_MINIMIZEBOX | WS_SYSMENU;
+        if (fullscreen) wanted &= ~LONG_PTR(WS_THICKFRAME | WS_MAXIMIZEBOX);
+        else wanted |= WS_THICKFRAME | WS_MAXIMIZEBOX;
         if (wanted == style) return;
         SetWindowLongPtrW(hwnd, GWL_STYLE, wanted);
-        veyra::log::info("qml-window", std::format("taskbar minimise enabled style=0x{:X}", static_cast<unsigned long long>(wanted)));
+        // Recompute the (empty) non-client area for the new style.
+        SetWindowPos(hwnd, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+        veyra::log::info("qml-window", std::format("window style 0x{:X} (snap frame {})", static_cast<unsigned long long>(wanted), !fullscreen));
     };
     allowTaskbarMinimise();
     QObject::connect(window, &QWindow::visibilityChanged, &app, [allowTaskbarMinimise](QWindow::Visibility) { allowTaskbarMinimise(); });

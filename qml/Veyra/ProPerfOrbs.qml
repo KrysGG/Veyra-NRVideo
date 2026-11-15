@@ -6,6 +6,7 @@ import QtQuick.Shapes
 import QtQuick.Effects
 
 RowLayout {
+    id: orbsRoot
     property int size: 56
     property bool showLabels: true
     spacing: 10
@@ -18,7 +19,15 @@ RowLayout {
         label: qsTr("处理耗时")
         tip: qsTr("增强链总耗时（最近一秒平均，与 1.4.4 相同口径），环 = 占源帧预算") + (veyra.stageBudgetMs > 0 ? " " + veyra.stageBudgetMs.toFixed(1) + " ms" : "") + qsTr(" 的比例")
     }
-    // Fork: one orb per GPU (GPU 1, GPU 2...) when more than one is present.
+    // Fork: short marketing name of an adapter ("NVIDIA GeForce RTX 5080" -> "RTX 5080").
+    function shortGpuName(name) {
+        let n = String(name || "").replace(/\((R|TM)\)/gi, "")
+        n = n.replace(/^\s*(NVIDIA|AMD|Intel|ATI)\s+/i, "")
+        n = n.replace(/^(GeForce|Radeon|Arc|Quadro)\s+/i, "")
+        n = n.replace(/\s+(Graphics|Laptop GPU)$/i, "").replace(/\s+/g, " ").trim()
+        return n.length > 0 ? n : String(name || "")
+    }
+    // Fork: one orb per GPU ("GPU 1: RTX 5080", "GPU 2: RTX 3090") when more than one is present.
     Repeater {
         model: veyra.gpuUsages.length > 1 ? veyra.gpuUsages : []
         ProPerfOrb {
@@ -29,8 +38,8 @@ RowLayout {
             known: modelData.known
             fraction: modelData.value / 100
             value: known ? Math.round(modelData.value) + "%" : "—"
-            label: "GPU " + (index + 1)
-            tip: modelData.name + qsTr(": busiest engine type, sampled every second (Task Manager's GPU counters)")
+            label: "GPU " + (index + 1) + ": " + orbsRoot.shortGpuName(modelData.name)
+            tip: "GPU " + (index + 1) + " · " + modelData.name + qsTr(": busiest engine type, sampled every second (Task Manager's GPU counters)")
         }
     }
     ProPerfOrb {
