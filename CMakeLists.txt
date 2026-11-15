@@ -1157,6 +1157,7 @@ if(VEYRA_BUILD_QML_UI AND Qt6_FOUND)
     src/ui/bridge/FrameGeneration.cpp
     src/ui/bridge/Colour.cpp
     src/ui/bridge/Preferences.cpp
+    src/ui/bridge/Dependencies.cpp
     src/ui/bridge/Capture.cpp
     src/ui/bridge/VirtualCaptureAudioSetup.cpp
     src/ui/bridge/VirtualCaptureAudioSetup.h

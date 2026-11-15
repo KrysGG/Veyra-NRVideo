@@ -785,6 +785,13 @@
    "ja": "ANR フレーム生成を開始できないためオフにしました。ランタイム、ドライバー、処理解像度（640×360以上）を確認してください。詳細はログにあります。"
   },
   {
+   "zh": "ANR 帧生成（实验）",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "ANR 幀生成（實驗）",
+   "en": "ANR Frame Generation (experimental)",
+   "ja": "ANR フレーム生成（実験的）"
+  },
+  {
    "zh": "AV1 需要主机显卡能编码、本机显卡能解码",
    "src": "qml/PcSourceDialog.qml",
    "zh-TW": "AV1 需要主機顯示卡能編碼、本機顯示卡能解碼",
@@ -1051,6 +1058,13 @@
    "ja": "DLAA：NVIDIA DLSS をネイティブ解像度で実行し、オプティカルフローに沿ってフレーム間でエッジを再構成します。DLSS SR のモデルを使い、他の方式より負荷が高くなります。キャプチャ映像にはゲームのようなジッターサンプルがないため、ゲーム内 DLAA より効果は弱くなります"
   },
   {
+   "zh": "DLSS 已就绪",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "DLSS 已就緒",
+   "en": "DLSS is ready",
+   "ja": "DLSS の準備完了"
+  },
+  {
    "zh": "DLSS 帧生成",
    "src": "src/ui/bridge/FrameGeneration.cpp",
    "zh-TW": "DLSS 幀生成",
@@ -1070,6 +1084,20 @@
    "zh-TW": "DLSS 模型",
    "en": "DLSS model",
    "ja": "DLSS モデル"
+  },
+  {
+   "zh": "DLSS 超分辨率",
+   "src": "src/ui/bridge/Dependencies.cpp",
+   "zh-TW": "DLSS 超解析度",
+   "en": "DLSS Super Resolution",
+   "ja": "DLSS 超解像"
+  },
+  {
+   "zh": "DLSS 超分辨率和 DLSS 帧生成需要 NVIDIA 的运行文件。Veyra 不附带也不代为下载它们：请从 NVIDIA 官方发布页下载，再按下面的步骤放进 Veyra 的组件文件夹。放好后几秒内自动识别，不用重启。",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "DLSS 超解析度和 DLSS 幀生成需要 NVIDIA 的執行檔案。Veyra 不附帶也不代為下載它們：請從 NVIDIA 官方發佈頁下載，再依下面的步驟放進 Veyra 的元件資料夾。放好後幾秒內自動識別，不用重新啟動。",
+   "en": "DLSS Super Resolution and DLSS Frame Generation need NVIDIA's runtime files. Veyra does not include or download them for you: get them from NVIDIA's official release page, then follow the steps below to put them in Veyra's component folder. They are detected within a few seconds, no restart needed.",
+   "ja": "DLSS 超解像と DLSS フレーム生成には NVIDIA のランタイムファイルが必要です。Veyra には同梱されず、代わりにダウンロードもしません。NVIDIA の公式リリースページから入手し、下の手順で Veyra のコンポーネントフォルダーに入れてください。数秒で自動検出され、再起動は不要です。"
   },
   {
    "zh": "DXGI 为显示器兼容方式，无鼠标指针；捕获显示器时不显示黄色边框，Veyra 自己也不会出现在截图和录屏里",
@@ -1730,6 +1758,13 @@
    "ja": "NVIDIA の新しいパフォーマンスモード（ベータ）：フレーム生成の GPU 負荷が減り高倍率でも安定、画質はやや落ちる場合あり。書き出しは標準モードのまま"
   },
   {
+   "zh": "NVIDIA 组件",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "NVIDIA 元件",
+   "en": "NVIDIA components",
+   "ja": "NVIDIA コンポーネント"
+  },
+  {
    "zh": "NVIDIA 驱动级 AI 插帧，与软件内补帧二选一",
    "src": "qml/SettingsPage.qml",
    "zh-TW": "NVIDIA 驅動級 AI 插幀，與軟體內補幀二選一",
@@ -2120,6 +2155,13 @@
    "zh-TW": "RTX 影片超解析 · 高位元率",
    "en": "RTX Video SR · High bitrate",
    "ja": "RTX 超解像 · 高ビットレート"
+  },
+  {
+   "zh": "RTX 超分里的 DLSS 选项需要它",
+   "src": "src/ui/bridge/Dependencies.cpp",
+   "zh-TW": "RTX 超解析的 DLSS 選項需要它",
+   "en": "Needed by the DLSS option in RTX super resolution",
+   "ja": "RTX 超解像の DLSS オプションに必要"
   },
   {
    "zh": "RX 7000 / 9000 · AMD NR（实验）",
@@ -2745,6 +2787,13 @@
    "ja": "前の項目"
   },
   {
+   "zh": "上方状态变成“已就绪”即完成。如果文件已放好仍显示缺少，确认文件名没有被改成“nvngx_dlss (1).dll”之类，且没有放进子文件夹。",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "上方狀態變成「已就緒」即完成。如果檔案已放好仍顯示缺少，確認檔名沒有被改成「nvngx_dlss (1).dll」之類，且沒有放進子資料夾。",
+   "en": "You're done when the status above says “Ready”. If a file is in place but still shows as missing, check that it wasn't renamed (for example “nvngx_dlss (1).dll”) and isn't inside a subfolder.",
+   "ja": "上の状態が「準備完了」になれば完了です。ファイルを入れたのに不足と表示される場合は、名前が「nvngx_dlss (1).dll」などに変わっていないか、サブフォルダーに入っていないか確認してください。"
+  },
+  {
    "zh": "上次",
    "src": "qml/SettingsPage.qml",
    "zh-TW": "上次",
@@ -2871,6 +2920,20 @@
    "ja": "ダウンロード %1 MB/s"
   },
   {
+   "zh": "下载 ANR 帧生成组件",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "下載 ANR 幀生成元件",
+   "en": "Download the ANR frame generation files",
+   "ja": "ANR フレーム生成ファイルをダウンロード"
+  },
+  {
+   "zh": "下载 NVIDIA DLSS SDK",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "下載 NVIDIA DLSS SDK",
+   "en": "Download the NVIDIA DLSS SDK",
+   "ja": "NVIDIA DLSS SDK をダウンロード"
+  },
+  {
    "zh": "下载 —",
    "src": "src/ui/bridge/Playback.cpp",
    "zh-TW": "下載 —",
@@ -2890,6 +2953,13 @@
    "zh-TW": "不保留",
    "en": "Don't keep",
    "ja": "保持しない"
+  },
+  {
+   "zh": "不再提示",
+   "src": "qml/DependencyBanner.qml",
+   "zh-TW": "不再提示",
+   "en": "Don't show again",
+   "ja": "今後表示しない"
   },
   {
    "zh": "不可用",
@@ -3030,6 +3100,13 @@
    "zh-TW": "丟包 %1",
    "en": "Lost %1",
    "ja": "パケット損失 %1"
+  },
+  {
+   "zh": "两个文件都已找到。超分和补帧里的 DLSS 选项现在可以使用。",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "兩個檔案都已找到。超解析和補幀裡的 DLSS 選項現在可以使用。",
+   "en": "Both files were found. The DLSS options in super resolution and frame generation are ready to use.",
+   "ja": "両方のファイルが見つかりました。超解像とフレーム生成の DLSS オプションを使えます。"
   },
   {
    "zh": "两台电脑接在同一个局域网，这里会自动出现；也可以在下面手填它的 IP。首次使用需要配对。",
@@ -5665,6 +5742,13 @@
    "ja": "使用可"
   },
   {
+   "zh": "可选",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "可選",
+   "en": "Optional",
+   "ja": "任意"
+  },
+  {
    "zh": "可选 · 采集卡直采无声时使用",
    "src": "qml/CaptureSourceDialog.qml",
    "zh-TW": "可選 · 擷取卡直采無聲時使用",
@@ -6918,6 +7002,13 @@
    "ja": "範囲内"
   },
   {
+   "zh": "安装 DLSS（超分辨率 + 帧生成）",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "安裝 DLSS（超解析度 + 幀生成）",
+   "en": "Install DLSS (Super Resolution + Frame Generation)",
+   "ja": "DLSS のインストール（超解像 + フレーム生成）"
+  },
+  {
    "zh": "安装 Veyra 虚拟扬声器",
    "src": "qml/CaptureSourceDialog.qml",
    "zh-TW": "安裝 Veyra 虛擬揚聲器",
@@ -8008,6 +8099,13 @@
    "zh-TW": "已匯出顏色預設",
    "en": "Color preset exported",
    "ja": "カラープリセットを書き出しました"
+  },
+  {
+   "zh": "已就绪",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "已就緒",
+   "en": "Ready",
+   "ja": "準備完了"
   },
   {
    "zh": "已开启",
@@ -9459,6 +9557,20 @@
    "ja": "開く"
   },
   {
+   "zh": "打开 ANR 发布页",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "開啟 ANR 發佈頁",
+   "en": "Open the ANR releases page",
+   "ja": "ANR のリリースページを開く"
+  },
+  {
+   "zh": "打开 ANR 项目的 GitHub 发布页，下载最新 FG 版本里的 <b>anr-fg-…-addon.zip</b>（不需要 full 或 kit 包）。",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "開啟 ANR 專案的 GitHub 發佈頁，下載最新 FG 版本裡的 <b>anr-fg-…-addon.zip</b>（不需要 full 或 kit 包）。",
+   "en": "Open the ANR project's GitHub releases page and download <b>anr-fg-…-addon.zip</b> from the latest FG release (not the full or kit packages).",
+   "ja": "ANR プロジェクトの GitHub リリースページを開き、最新 FG リリースの <b>anr-fg-…-addon.zip</b> をダウンロードします（full や kit は不要）。"
+  },
+  {
    "zh": "打开 GitHub Issues，诊断信息已自动复制",
    "src": "qml/SettingsPage.qml",
    "zh-TW": "開啟 GitHub Issues，診斷資訊已自動複製",
@@ -9466,11 +9578,32 @@
    "ja": "GitHub Issues を開きます。診断情報は自動でコピーされています"
   },
   {
+   "zh": "打开 NVIDIA 下载页",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "開啟 NVIDIA 下載頁",
+   "en": "Open NVIDIA download page",
+   "ja": "NVIDIA のダウンロードページを開く"
+  },
+  {
+   "zh": "打开 NVIDIA 在 GitHub 上的官方发布页（DLSS SDK v310.9.1，本版本按它验证），在 Assets 里下载 <b>Source code (zip)</b>。",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "開啟 NVIDIA 在 GitHub 上的官方發佈頁（DLSS SDK v310.9.1，本版本依它驗證），在 Assets 裡下載 <b>Source code (zip)</b>。",
+   "en": "Open NVIDIA's official GitHub release page (DLSS SDK v310.9.1, the version this build is tested with) and download <b>Source code (zip)</b> under Assets.",
+   "ja": "NVIDIA の GitHub 公式リリースページ（DLSS SDK v310.9.1、このバージョンで検証済み）を開き、Assets から <b>Source code (zip)</b> をダウンロードします。"
+  },
+  {
    "zh": "打开 Windows 录制设置",
    "src": "qml/CaptureSourceDialog.qml",
    "zh-TW": "開啟 Windows 錄制設定",
    "en": "Open Windows recording settings",
    "ja": "Windows の録音設定を開く"
+  },
+  {
+   "zh": "打开 anr 文件夹",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "開啟 anr 資料夾",
+   "en": "Open the anr folder",
+   "ja": "anr フォルダーを開く"
   },
   {
    "zh": "打开字幕编码器",
@@ -9541,6 +9674,13 @@
    "zh-TW": "開啟目錄",
    "en": "Open folder",
    "ja": "フォルダーを開く"
+  },
+  {
+   "zh": "打开目标文件夹",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "開啟目標資料夾",
+   "en": "Open target folder",
+   "ja": "保存先フォルダーを開く"
   },
   {
    "zh": "打开美乐威采集通道失败",
@@ -9639,6 +9779,13 @@
    "zh-TW": "找不到這台主機，可能已從帳號裡移除。請刷新主機列表。",
    "en": "This console cannot be found; it may have been removed from the account. Refresh the console list.",
    "ja": "この本体が見つかりません。アカウントから削除された可能性があります。本体の一覧を更新してください。"
+  },
+  {
+   "zh": "把 zip 里的全部文件拖进 anr 文件夹",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "把 zip 裡的全部檔案拖進 anr 資料夾",
+   "en": "Drag every file from the zip into the anr folder",
+   "ja": "zip 内のすべてのファイルを anr フォルダーへドラッグ"
   },
   {
    "zh": "把一个窗口或整块显示器作为片源",
@@ -9765,6 +9912,20 @@
    "zh-TW": "拖曳調整參數面板寬度 · 雙擊還原",
    "en": "Drag to resize the settings panel · double-click to reset",
    "ja": "ドラッグで設定パネルの幅を変更 · ダブルクリックで元に戻す"
+  },
+  {
+   "zh": "拖放",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "拖放",
+   "en": "Drag",
+   "ja": "ドラッグ"
+  },
+  {
+   "zh": "拖进 Veyra 的组件文件夹",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "拖進 Veyra 的元件資料夾",
+   "en": "Drag them into Veyra's component folder",
+   "ja": "Veyra のコンポーネントフォルダーへドラッグ"
   },
   {
    "zh": "按下新按键…",
@@ -10181,6 +10342,13 @@
    "ja": "名前の変更に失敗しました：空、48 文字超、または既存のプリセットと同じ名前にはできません"
   },
   {
+   "zh": "放到这里",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "放到這裡",
+   "en": "Drop here",
+   "ja": "ここにドロップ"
+  },
+  {
    "zh": "效果",
    "src": "qml/ColourPanel.qml",
    "zh-TW": "效果",
@@ -10354,6 +10522,13 @@
    "zh-TW": "檔案播放、字幕與截圖的預設行為。",
    "en": "Defaults for file playback, subtitles and screenshots.",
    "ja": "ファイル再生、字幕、スクリーンショットの既定動作。"
+  },
+  {
+   "zh": "文件放好后会自动识别；也可以手动立即检查",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "檔案放好後會自動識別；也可以手動立即檢查",
+   "en": "Files are detected automatically once in place; you can also check now",
+   "ja": "ファイルを入れると自動検出されます。今すぐ確認することもできます"
   },
   {
    "zh": "文件格式不支持、数据损坏或没有字幕内容",
@@ -11924,11 +12099,25 @@
    "ja": "表示"
   },
   {
+   "zh": "查看指南",
+   "src": "qml/DependencyBanner.qml",
+   "zh-TW": "查看指南",
+   "en": "Open guide",
+   "ja": "ガイドを見る"
+  },
+  {
    "zh": "查看更新",
    "src": "qml/SettingsPage.qml",
    "zh-TW": "查看更新",
    "en": "View update",
    "ja": "更新を見る"
+  },
+  {
+   "zh": "查看步骤",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "查看步驟",
+   "en": "Show steps",
+   "ja": "手順を表示"
   },
   {
    "zh": "标准",
@@ -12090,6 +12279,13 @@
    "zh-TW": "模型參數",
    "en": "Model parameters",
    "ja": "モデルのパラメーター"
+  },
+  {
+   "zh": "模型和其余文件…",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "模型和其餘檔案…",
+   "en": "Models and the other files…",
+   "ja": "モデルとその他のファイル…"
   },
   {
    "zh": "模型强度",
@@ -12601,6 +12797,13 @@
    "zh-TW": "此功能使用 VB-Audio 的 VB-CABLE（捐贈軟體），可從內建安裝包離線安裝。首次安裝需管理員確認，完成後按提示重啟。\n\n1. 在 Windows“錄制”裡開啟擷取卡音訊的屬性，勾選“偵聽此裝置”，播放目標選 CABLE Input。如果已改名，請選擇改後的名稱。",
    "en": "This feature uses VB-CABLE by VB-Audio (donationware). Install it offline from the bundled package. First-time installation requires administrator approval. Restart Windows if prompted.\n\n1. In Windows Recording settings, open the capture card’s audio properties, enable Listen to this device, and select CABLE Input. If you renamed it, select the new name.",
    "ja": "この機能は VB-Audio の VB-CABLE（ドネーションウェア）を使用します。同梱のパッケージからオフラインでインストールできます。初回は管理者の承認が必要です。指示に従って Windows を再起動してください。\n\n1. Windows の「録音」でキャプチャカードの音声プロパティを開き、「このデバイスを聴く」を有効にして再生先を CABLE Input にします。名前を変更した場合は新しい名前を選びます。"
+  },
+  {
+   "zh": "此显卡不可用",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "此顯示卡不可用",
+   "en": "Not available on this GPU",
+   "ja": "この GPU では使用不可"
   },
   {
    "zh": "此显卡最多支持 {}X 帧生成；请求未应用",
@@ -13168,6 +13371,13 @@
    "zh-TW": "點一下滑塊後用 ← → 調整，每次的幅度；Esc 或單擊畫面交還方向鍵給快進快退",
    "en": "Click a slider and use ← → to adjust by this step; Esc or clicking the picture gives the arrow keys back to seeking",
    "ja": "スライダーをクリックすると ← → でこの刻みで調整します。Esc か映像のクリックで矢印キーをシーク操作に戻します"
+  },
+  {
+   "zh": "点击“打开目标文件夹”，把这两个 DLL 从 rel 拖进打开的窗口。目标文件夹：<br><font face=\"Consolas\">%1</font>",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "點擊「開啟目標資料夾」，把這兩個 DLL 從 rel 拖進開啟的視窗。目標資料夾：<br><font face=\"Consolas\">%1</font>",
+   "en": "Click “Open target folder” and drag both DLLs from rel into the window that opens. Target folder:<br><font face=\"Consolas\">%1</font>",
+   "ja": "「保存先フォルダーを開く」をクリックし、2 つの DLL を rel から開いたウィンドウへドラッグします。保存先：<br><font face=\"Consolas\">%1</font>"
   },
   {
    "zh": "点击右侧按键，再按下新的组合键即可重新绑定；Esc 取消。",
@@ -13828,6 +14038,13 @@
    "ja": "OK"
   },
   {
+   "zh": "确认",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "確認",
+   "en": "Confirm",
+   "ja": "確認"
+  },
+  {
    "zh": "确认卸载",
    "src": "qml/CaptureSourceDialog.qml",
    "zh-TW": "確認解除安裝",
@@ -13994,6 +14211,13 @@
    "zh-TW": "端點已開啟",
    "en": "Endpoint open",
    "ja": "エンドポイントを開きました"
+  },
+  {
+   "zh": "第三方 apex-compute/ANR 项目的补帧组件，不是 NVIDIA 官方组件；其作者目前禁止第三方再分发，只能自行下载",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "第三方 apex-compute/ANR 專案的補幀元件，不是 NVIDIA 官方元件；其作者目前禁止第三方再散佈，只能自行下載",
+   "en": "Frame generation from the third-party apex-compute/ANR project, not an official NVIDIA component. Its authors currently forbid redistribution, so you have to download it yourself",
+   "ja": "サードパーティの apex-compute/ANR プロジェクトのフレーム生成で、NVIDIA 公式ではありません。作者が再配布を禁止しているため、各自でダウンロードしてください"
   },
   {
    "zh": "第二次 %1",
@@ -14437,11 +14661,32 @@
    "ja": "エンコーダーが不明なフレーム番号を返しました"
   },
   {
+   "zh": "缺少",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "缺少",
+   "en": "Missing",
+   "ja": "不足"
+  },
+  {
+   "zh": "缺少 DLSS / NVIDIA 帧生成所需的运行组件。前往 设置 › NVIDIA 组件 查看安装指南。",
+   "src": "qml/DependencyBanner.qml",
+   "zh-TW": "缺少 DLSS / NVIDIA 幀生成所需的執行元件。前往 設定 › NVIDIA 元件 查看安裝指南。",
+   "en": "Files needed for DLSS / NVIDIA frame generation are missing. See Settings › NVIDIA components for a setup guide.",
+   "ja": "DLSS / NVIDIA フレーム生成に必要なファイルがありません。設定 › NVIDIA コンポーネント のガイドを確認してください。"
+  },
+  {
    "zh": "缺少此字幕格式的解码器",
    "src": "src/engine/Subtitles.cpp",
    "zh-TW": "缺少此字幕格式的解碼器",
    "en": "Decoder for this subtitle format is unavailable",
    "ja": "この字幕形式のデコーダーがありません"
+  },
+  {
+   "zh": "缺少运行组件，请到 设置 › NVIDIA 组件 查看安装指南",
+   "src": "src/ui/bridge/Hardware.cpp",
+   "zh-TW": "缺少執行元件，請到 設定 › NVIDIA 元件 查看安裝指南",
+   "en": "Runtime files missing; see Settings › NVIDIA components for a setup guide",
+   "ja": "ランタイムファイルがありません。設定 › NVIDIA コンポーネント のガイドを確認してください"
   },
   {
    "zh": "网状",
@@ -15599,6 +15844,20 @@
    "ja": "フレーム生成の選択が受け付けられなかったため、元の設定のままです。倍率と方式の対応範囲を確認してください"
   },
   {
+   "zh": "补帧里的 ANR 选项需要它；不是 NVIDIA 官方组件",
+   "src": "src/ui/bridge/Dependencies.cpp",
+   "zh-TW": "補幀裡的 ANR 選項需要它；不是 NVIDIA 官方元件",
+   "en": "Needed by the ANR frame generation option; not an official NVIDIA component",
+   "ja": "フレーム生成の ANR オプションに必要。NVIDIA 公式ではありません"
+  },
+  {
+   "zh": "补帧里的 DLSS 选项需要它",
+   "src": "src/ui/bridge/Dependencies.cpp",
+   "zh-TW": "補幀裡的 DLSS 選項需要它",
+   "en": "Needed by the DLSS frame generation option",
+   "ja": "フレーム生成の DLSS オプションに必要"
+  },
+  {
    "zh": "裁剪范围超出画面",
    "src": "src/source/ScreenCaptureSource.cpp",
    "zh-TW": "裁剪範圍超出畫面",
@@ -15772,6 +16031,27 @@
    "zh-TW": "影片首幀讀取失敗",
    "en": "Could not read the first video frame",
    "ja": "動画の最初のフレームを読み取れませんでした"
+  },
+  {
+   "zh": "解压 addon.zip，把里面<b>所有文件</b>（包括 nvngx_dlssg.dll 和模型文件）拖进 anr 文件夹。按钮会在需要时自动建好这个文件夹：<br><font face=\"Consolas\">%1</font>",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "解壓 addon.zip，把裡面<b>所有檔案</b>（包括 nvngx_dlssg.dll 和模型檔案）拖進 anr 資料夾。按鈕會在需要時自動建立這個資料夾：<br><font face=\"Consolas\">%1</font>",
+   "en": "Extract addon.zip and drag <b>every file</b> in it (including nvngx_dlssg.dll and the model files) into the anr folder. The button creates the folder if it doesn't exist yet:<br><font face=\"Consolas\">%1</font>",
+   "ja": "addon.zip を展開し、中の<b>すべてのファイル</b>（nvngx_dlssg.dll とモデルファイルを含む）を anr フォルダーへドラッグします。フォルダーがなければボタンが作成します：<br><font face=\"Consolas\">%1</font>"
+  },
+  {
+   "zh": "解压下载的 zip，依次打开 <b>lib → Windows_x86_64 → rel</b>，找到 <b>nvngx_dlss.dll</b> 和 <b>nvngx_dlssg.dll</b>。同目录的其他文件不需要。",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "解壓下載的 zip，依序開啟 <b>lib → Windows_x86_64 → rel</b>，找到 <b>nvngx_dlss.dll</b> 和 <b>nvngx_dlssg.dll</b>。同目錄的其他檔案不需要。",
+   "en": "Extract the zip, open <b>lib → Windows_x86_64 → rel</b>, and find <b>nvngx_dlss.dll</b> and <b>nvngx_dlssg.dll</b>. The other files there aren't needed.",
+   "ja": "zip を展開し、<b>lib → Windows_x86_64 → rel</b> を開いて <b>nvngx_dlss.dll</b> と <b>nvngx_dlssg.dll</b> を見つけます。同じフォルダーの他のファイルは不要です。"
+  },
+  {
+   "zh": "解压，找到两个 DLL",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "解壓，找到兩個 DLL",
+   "en": "Extract and find the two DLLs",
+   "ja": "展開して 2 つの DLL を探す"
   },
   {
    "zh": "解码",
@@ -18145,6 +18425,13 @@
    "zh-TW": "重新開啟同一個檔案時從上次位置繼續",
    "en": "Continue from the last position when the same file is reopened",
    "ja": "同じファイルを開き直すと前回の位置から再開"
+  },
+  {
+   "zh": "重新检查",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "重新檢查",
+   "en": "Check again",
+   "ja": "再確認"
   },
   {
    "zh": "重置本页",

@@ -785,6 +785,29 @@ Window {
         target: veyra.updates
         function onUpdateAvailable(version) { updateBanner.show(version) }
     }
+    // Missing DLSS files: once per launch, pointing to 设置 → NVIDIA 组件.
+    DependencyBanner {
+        id: dependencyBanner
+        z: 35
+        anchors.top: updateBanner.visible ? updateBanner.bottom : parent.top
+        anchors.topMargin: updateBanner.visible ? 8 : 12
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: Math.min(560, root.width - 32)
+        onOpenRequested: { settingsPage.section = "deps"; root.goPage("set") }
+        onHideForever: veyra.setPreference("dependencyNoticeHidden", true)
+    }
+    Timer {
+        // After start-up settles, so the first capability scan has run.
+        interval: 3000
+        running: true
+        onTriggered: if (veyra.nvidiaDependenciesMissing && veyra.preferences.dependencyNoticeHidden !== true
+                         && root.page !== "set" && !root.fullscreen) dependencyBanner.show()
+    }
+    Connections {
+        // Files dropped in while the notice is up: it has nothing left to say.
+        target: veyra
+        function onEffectCapabilitiesChanged() { if (!veyra.nvidiaDependenciesMissing) dependencyBanner.dismiss() }
+    }
     // pages.css .canvas-toast: top 12px, padding 7px 12px, from translate -8px and
     // opacity 0; .on: opacity .2s, translate .45s --spring; hidden after 2600 ms.
     Rectangle {
