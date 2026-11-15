@@ -562,7 +562,8 @@ VPage {
     readonly property real videoColumnWidth: Math.max(1, root.width - root.inspectorWidth - 14 * 2 - 10)
     // Fork: the stats cards under the picture can be resized (drag the gap above
     // them, double-click to return to automatic) and collapsed to a slim bar.
-    readonly property real metersAutoHeight: Math.max(172, meter3Content.implicitHeight + 28)
+    readonly property real metersAutoHeight: Math.max(172, meter3Content.implicitHeight + 28,
+                                                        meter1.visible ? signalContent.implicitHeight + 28 : 0)
     readonly property bool metersCollapsed: veyra.preferences.listMetersCollapsed === true
     readonly property real metersMaxHeight: Math.max(120, (root.height - head.height - 14 * 2 - 20) * 0.6)
     readonly property real metersOpenHeight: {
@@ -577,7 +578,7 @@ VPage {
     // title) and made wider or narrower (drag the gap between two cards).
     // Double-clicking a grip puts both back.
     readonly property var metersDefaultOrder: ["signal", "stages", "rate"]
-    readonly property var metersDefaultWeights: ({ signal: 1.05, stages: 1.5, rate: 1.15 })
+    readonly property var metersDefaultWeights: ({ signal: 1.3, stages: 1.45, rate: 1.15 })
     readonly property var metersOrder: {
         const saved = String(veyra.preferences.listMetersOrder || "").split(",")
         return saved.length === 3 && metersDefaultOrder.every(k => saved.indexOf(k) >= 0) ? saved : metersDefaultOrder
@@ -1185,6 +1186,7 @@ VPage {
             border.width: 1
             border.color: meters.dragKey === key ? Theme.accent : Theme.stroke
             ColumnLayout {
+                id: signalContent
                 anchors.fill: parent
                 anchors.margins: 14
                 spacing: 6
@@ -1233,7 +1235,9 @@ VPage {
                         text: veyra.sourceFormatText.length > 0 ? veyra.sourceFormatText : qsTr("未打开")
                         color: Theme.t1; font.family: Theme.fontMono; font.pixelSize: 12
                         horizontalAlignment: Text.AlignRight
-                        elide: Text.ElideLeft
+                        wrapMode: Text.WrapAnywhere
+                        maximumLineCount: 2
+                        elide: Text.ElideRight
                     }
                     Text { text: qsTr("输入"); color: Theme.t3; font.family: Theme.fontUi; font.pixelSize: 12 }
                     Text {
@@ -1264,6 +1268,9 @@ VPage {
                         text: veyra.colorStatus.length > 0 ? veyra.colorStatus : "—"
                         color: Theme.t1; font.family: Theme.fontMono; font.pixelSize: 12
                         horizontalAlignment: Text.AlignRight
+                        Layout.minimumWidth: 0
+                        wrapMode: Text.Wrap
+                        maximumLineCount: 2
                         elide: Text.ElideRight
                     }
                     // The shown monitor: the video's while playing, otherwise the window's.
@@ -1282,6 +1289,9 @@ VPage {
                         text: veyra.vrrSummary + (veyra.displayRefreshHz > 0 ? " · " + veyra.displayRefreshHz.toFixed(0) + " Hz" : "")
                         color: veyra.vrrState >= 4 ? Theme.ok : Theme.t1; font.family: Theme.fontMono; font.pixelSize: 12
                         horizontalAlignment: Text.AlignRight
+                        Layout.minimumWidth: 0
+                        wrapMode: Text.Wrap
+                        maximumLineCount: 2
                         elide: Text.ElideRight
                     }
                     // Network / server playback (#48): buffer, download speed, reconnects.
