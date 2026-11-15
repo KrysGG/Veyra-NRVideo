@@ -19918,6 +19918,34 @@
    "zh-TW": "展開",
    "en": "Expand",
    "ja": "展開"
+  },
+  {
+   "zh": "输出未达标",
+   "src": "apps/veyra/ui/LiveStatusHistory.h",
+   "zh-TW": "輸出未達標",
+   "en": "Output below target",
+   "ja": "出力が目標未達"
+  },
+  {
+   "zh": "补帧调度降档",
+   "src": "apps/veyra/ui/LiveStatusHistory.h",
+   "zh-TW": "補幀調度降檔",
+   "en": "Frame generation scaled back",
+   "ja": "フレーム生成を抑制中"
+  },
+  {
+   "zh": "输入帧率不足",
+   "src": "apps/veyra/ui/LiveStatusHistory.h",
+   "zh-TW": "輸入幀率不足",
+   "en": "Input frame rate too low",
+   "ja": "入力フレームレート不足"
+  },
+  {
+   "zh": "输入时间线异常",
+   "src": "apps/veyra/ui/LiveStatusHistory.h",
+   "zh-TW": "輸入時間線異常",
+   "en": "Input timeline irregular",
+   "ja": "入力タイムライン異常"
   }
  ]
 }

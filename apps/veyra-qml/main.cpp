@@ -38,6 +38,8 @@
 #include <QStandardPaths>
 
 #include <windows.h>
+#include <dwmapi.h>
+#pragma comment(lib, "dwmapi.lib")
 #include <shellapi.h>
 #include <shobjidl.h>
 #include <dbghelp.h>
@@ -685,6 +687,22 @@ static int runApplication(int argc, char** argv, QString& restartProgram, QStrin
                 if (result) *result = 0;
                 return true;
             }
+            // Fork: with a sizing frame, Windows repaints the classic frame on
+            // activation (WM_NCACTIVATE) and on WM_NCPAINT, straight over the edge
+            // of the picture: the light border seen after the FancyZones change.
+            // There is no non-client area to paint, so neither paints anything.
+            if (g_mainWindow && msg->hwnd == g_mainWindow
+                && (GetWindowLongPtrW(msg->hwnd, GWL_STYLE) & WS_THICKFRAME) != 0) {
+                if (msg->message == WM_NCACTIVATE) {
+                    // lParam -1: update the active state without redrawing the frame.
+                    if (result) *result = DefWindowProcW(msg->hwnd, WM_NCACTIVATE, msg->wParam, -1);
+                    return true;
+                }
+                if (msg->message == WM_NCPAINT) {
+                    if (result) *result = 0;
+                    return true;
+                }
+            }
             if (msg->message != WM_SYSCOMMAND || (msg->wParam & 0xFFF0) != SC_KEYMENU) return false;
             veyra::log::info("ui-window", std::format("system key menu refused (lParam=0x{:X})", unsigned(msg->lParam)));
             if (result) *result = 0;
@@ -945,6 +963,13 @@ static int runApplication(int argc, char** argv, QString& restartProgram, QStrin
         LONG_PTR wanted = style | WS_MINIMIZEBOX | WS_SYSMENU;
         if (fullscreen) wanted &= ~LONG_PTR(WS_THICKFRAME | WS_MAXIMIZEBOX);
         else wanted |= WS_THICKFRAME | WS_MAXIMIZEBOX;
+        // Fork: no Windows 11 accent outline or rounded corners for the sizing
+        // frame: the window keeps the square, borderless look it had before.
+        // (Both attributes are ignored on Windows 10.)
+        const COLORREF noBorder = 0xFFFFFFFE; // DWMWA_COLOR_NONE
+        DwmSetWindowAttribute(hwnd, 34 /* DWMWA_BORDER_COLOR */, &noBorder, sizeof(noBorder));
+        const DWORD squareCorners = 1; // DWMWCP_DONOTROUND
+        DwmSetWindowAttribute(hwnd, 33 /* DWMWA_WINDOW_CORNER_PREFERENCE */, &squareCorners, sizeof(squareCorners));
         if (wanted == style) return;
         SetWindowLongPtrW(hwnd, GWL_STYLE, wanted);
         // Recompute the (empty) non-client area for the new style.

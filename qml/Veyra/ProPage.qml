@@ -177,6 +177,57 @@ VPage {
 
     component StatusSummary: ProStatusSummary {}
 
+    // Fork: the six-dot grip beside a stats card's title. Drag it sideways to
+    // move the card; double-click it to put every card back in place and size.
+    component MeterGrip: Item {
+        id: grip
+        required property Item card
+        implicitWidth: 12
+        implicitHeight: 18
+        Grid {
+            anchors.centerIn: parent
+            columns: 2
+            spacing: 2
+            Repeater {
+                model: 6
+                Rectangle {
+                    width: 3; height: 3; radius: 1.5
+                    color: gripArea.pressed ? Theme.accent : gripArea.containsMouse ? Theme.t1 : Theme.t3
+                }
+            }
+        }
+        MouseArea {
+            id: gripArea
+            objectName: "pro-meter-grip-" + grip.card.key
+            anchors.fill: parent
+            anchors.margins: -4
+            hoverEnabled: true
+            preventStealing: true
+            cursorShape: pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor
+            property real pressX: 0
+            property real startX: 0
+            property bool moving: false
+            onPressed: mouse => {
+                pressX = mapToItem(meters, mouse.x, 0).x
+                startX = meters.cardX(grip.card.key)
+                moving = false
+            }
+            onPositionChanged: mouse => {
+                if (!pressed) return
+                const dx = mapToItem(meters, mouse.x, 0).x - pressX
+                if (!moving && Math.abs(dx) < 4) return
+                if (!moving) { moving = true; meters.beginMove(grip.card.key) }
+                meters.moveTo(grip.card.key, startX + dx)
+            }
+            onReleased: if (moving) { moving = false; meters.endMove(grip.card.key) }
+            onCanceled: if (moving) { moving = false; meters.endMove(grip.card.key) }
+            onDoubleClicked: root.resetMetersLayout()
+        }
+        ToolTip.visible: gripArea.containsMouse && !gripArea.pressed
+        ToolTip.delay: 600
+        ToolTip.text: qsTr("Drag to move this card · double-click to reset the cards' order and widths")
+    }
+
     component NrLayerCard: VAccordion {
         id: card
         required property var layerData
@@ -516,6 +567,27 @@ VPage {
     }
     readonly property real metersHeight: root.metersCollapsed ? 34 : root.metersOpenHeight
     property real metersDrag: -1
+    // Fork: the cards can also be put in any order (drag the grip beside a
+    // title) and made wider or narrower (drag the gap between two cards).
+    // Double-clicking a grip puts both back.
+    readonly property var metersDefaultOrder: ["signal", "stages", "rate"]
+    readonly property var metersDefaultWeights: ({ signal: 1.05, stages: 1.5, rate: 1.15 })
+    readonly property var metersOrder: {
+        const saved = String(veyra.preferences.listMetersOrder || "").split(",")
+        return saved.length === 3 && metersDefaultOrder.every(k => saved.indexOf(k) >= 0) ? saved : metersDefaultOrder
+    }
+    readonly property var metersWeights: {
+        const saved = String(veyra.preferences.listMetersWeights || "").split(",").map(Number)
+        if (saved.length !== 3 || saved.some(w => !(w > 0))) return metersDefaultWeights
+        return { signal: saved[0], stages: saved[1], rate: saved[2] }
+    }
+    function saveMetersWeights(w) {
+        veyra.setPreference("listMetersWeights", [w.signal, w.stages, w.rate].map(v => v.toFixed(3)).join(","))
+    }
+    function resetMetersLayout() {
+        veyra.setPreference("listMetersOrder", "")
+        veyra.setPreference("listMetersWeights", "")
+    }
     readonly property real videoCardHeight: Math.max(transport.height + 1,
         root.height - 14 * 2 - head.height - 10 - root.metersHeight - 10)
     readonly property rect videoViewport: Qt.rect(14, 14 + head.height + 10,
@@ -950,7 +1022,9 @@ VPage {
     }
 
     // --- meters (at least 172px, three cards) -----------------------------
-    RowLayout {
+    // Fork: laid out by hand instead of a RowLayout so the cards can be put in
+    // any order and given any share of the width.
+    Item {
         id: meters
         visible: !root.overlay && !root.metersCollapsed
         layer.enabled: root.metersDrag >= 0 && !root.softwareRendering
@@ -962,28 +1036,99 @@ VPage {
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 14
         width: vwrap.width
-        spacing: 10
+        readonly property real gap: 10
+        readonly property real minCard: 200
+        // A narrow picture column (wide inspector, small window) drops the
+        // signal card first, so the stage timings keep room to read.
+        readonly property bool signalShown: width >= 760
+        // While a card is dragged, the others make room for it at once.
+        property var previewOrder: null
+        readonly property var order: previewOrder || root.metersOrder
+        readonly property var shown: order.filter(k => k !== "signal" || signalShown)
+        // Widths while the gap between two cards is dragged.
+        property var liveWeights: null
+        readonly property var weights: liveWeights || root.metersWeights
+        readonly property real usable: Math.max(1, width - gap * Math.max(0, shown.length - 1))
+        readonly property real weightSum: shown.reduce((sum, k) => sum + weights[k], 0)
+        // The card being moved and where its left edge is.
+        property string dragKey: ""
+        property real dragX: 0
+        // Slide into place after a move, never while the window is resized.
+        property bool settling: false
+        Timer { id: meterSettle; interval: Theme.d(260) + 20; onTriggered: meters.settling = false }
+        function cardWidth(key) { return meters.usable * meters.weights[key] / meters.weightSum }
+        function cardX(key) {
+            let x = 0
+            for (const k of meters.shown) {
+                if (k === key) return x
+                x += meters.cardWidth(k) + meters.gap
+            }
+            return 0
+        }
+        function placeX(key) { return meters.dragKey === key ? meters.dragX : meters.cardX(key) }
+        // The order the dragged card would land in: by its centre against the
+        // others' centres. A hidden signal card keeps its slot.
+        function orderFor(key, centre) {
+            const base = root.metersOrder
+            const visibleKeys = base.filter(k => k !== "signal" || meters.signalShown)
+            const others = visibleKeys.filter(k => k !== key)
+            let at = 0, x = 0
+            const total = meters.usable
+            for (const k of visibleKeys) {
+                if (k === key) continue
+                const w = total * meters.weights[k] / meters.weightSum
+                if (centre > x + w / 2) at++
+                x += w + meters.gap
+            }
+            others.splice(at, 0, key)
+            let i = 0
+            return base.map(k => (k !== "signal" || meters.signalShown) ? others[i++] : k)
+        }
+        function beginMove(key) {
+            meters.dragX = meters.cardX(key)
+            meters.dragKey = key
+            meters.settling = true
+        }
+        function moveTo(key, x) {
+            meters.dragX = Math.max(0, Math.min(meters.width - meters.cardWidth(key), x))
+            meters.previewOrder = meters.orderFor(key, meters.dragX + meters.cardWidth(key) / 2)
+        }
+        function endMove(key) {
+            const next = meters.previewOrder
+            meters.dragKey = ""
+            meters.previewOrder = null
+            if (next && next.join(",") !== root.metersOrder.join(","))
+                veyra.setPreference("listMetersOrder", next.join(","))
+            meters.settling = true
+            meterSettle.restart()
+        }
 
         // Card 1: signal chain. Reported values only.
         // A narrow picture column (wide inspector, small window) drops this card
         // first, so the stage timings beside it keep room to read.
         Rectangle {
             id: meter1
+            objectName: "pro-meter-signal"
+            readonly property string key: "signal"
             clip: true
-            visible: meters.width >= 760
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            Layout.preferredWidth: 1.05
+            visible: meters.signalShown
+            x: meters.placeX(key)
+            width: meters.cardWidth(key)
+            height: meters.height
+            z: meters.dragKey === key ? 3 : 0
+            Behavior on x { enabled: meters.settling && meters.dragKey !== meter1.key; NumberAnimation { duration: Theme.d(220); easing.type: Easing.OutCubic } }
             radius: Theme.rCard
             color: Theme.card
             border.width: 1
-            border.color: Theme.stroke
+            border.color: meters.dragKey === key ? Theme.accent : Theme.stroke
             ColumnLayout {
                 anchors.fill: parent
                 anchors.margins: 14
                 spacing: 6
                 RowLayout {
                     Layout.fillWidth: true
+                    spacing: 6
+                    MeterGrip { card: meter1 }
                     VEyebrow { Layout.fillWidth: true; text: qsTr("信号") }
                     // 刷新显示器状态: Windows HDR, refresh rate and variable refresh are
                     // read on events only (startup, a display or monitor change, the
@@ -1069,6 +1214,34 @@ VPage {
                         elide: Text.ElideRight
                     }
                 }
+                // Fork: the run status (what is captured, at which sizes, and how it
+                // is processed) moved here from the bottom of the settings panel.
+                Rectangle {
+                    visible: veyra.statusText.length > 0
+                    Layout.fillWidth: true
+                    Layout.topMargin: 4
+                    implicitHeight: 1
+                    color: Theme.stroke
+                }
+                RowLayout {
+                    objectName: "pro-signal-status"
+                    visible: veyra.statusText.length > 0
+                    Layout.fillWidth: true
+                    spacing: 8
+                    VDot { Layout.alignment: Qt.AlignTop; Layout.topMargin: 4; off: !veyra.running; warn: veyra.captureRecovering; err: veyra.failed }
+                    Text {
+                        objectName: "pro-inspector-status"
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 0
+                        // One part per line: "Live capture", the sizes, how it is processed.
+                        text: veyra.statusText.split(" | ").join("\n")
+                        color: Theme.t2
+                        font.family: Theme.fontUi
+                        font.pixelSize: 11
+                        lineHeight: 1.1
+                        wrapMode: Text.Wrap
+                    }
+                }
                 Item { Layout.fillHeight: true }
             }
         }
@@ -1081,20 +1254,25 @@ VPage {
             // Too narrow for label, bar and value side by side in two columns: the
             // bars and the budget note go, the values stay.
             readonly property bool narrow: width < 380
+            readonly property string key: "stages"
             clip: true
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            Layout.preferredWidth: 1.5
+            x: meters.placeX(key)
+            width: meters.cardWidth(key)
+            height: meters.height
+            z: meters.dragKey === key ? 3 : 0
+            Behavior on x { enabled: meters.settling && meters.dragKey !== meter2.key; NumberAnimation { duration: Theme.d(220); easing.type: Easing.OutCubic } }
             radius: Theme.rCard
             color: Theme.card
             border.width: 1
-            border.color: Theme.stroke
+            border.color: meters.dragKey === key ? Theme.accent : Theme.stroke
             ColumnLayout {
                 anchors.fill: parent
                 anchors.margins: 14
                 spacing: 5
                 RowLayout {
                     Layout.fillWidth: true
+                    spacing: 6
+                    MeterGrip { card: meter2 }
                     VEyebrow { text: qsTr("GPU 阶段耗时 · 最近一秒平均"); Layout.fillWidth: true }
                     Text {
                         visible: !meter2.narrow
@@ -1259,14 +1437,18 @@ VPage {
             // Fork: with one orb per GPU the orbs need more room beside the numbers;
             // below that width they move under the frame rate instead of overlapping it.
             readonly property bool wide: width >= (veyra.gpuUsages.length > 1 ? 540 : 380)
+            objectName: "pro-meter-rate"
+            readonly property string key: "rate"
             clip: true
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            Layout.preferredWidth: 1.15
+            x: meters.placeX(key)
+            width: meters.cardWidth(key)
+            height: meters.height
+            z: meters.dragKey === key ? 3 : 0
+            Behavior on x { enabled: meters.settling && meters.dragKey !== meter3.key; NumberAnimation { duration: Theme.d(220); easing.type: Easing.OutCubic } }
             radius: Theme.rCard
             color: Theme.card
             border.width: 1
-            border.color: Theme.stroke
+            border.color: meters.dragKey === key ? Theme.accent : Theme.stroke
             ColumnLayout {
                 id: meter3Content
                 anchors.fill: parent
@@ -1282,6 +1464,8 @@ VPage {
                         spacing: 6
                         RowLayout {
                             Layout.fillWidth: true
+                            spacing: 6
+                            MeterGrip { card: meter3 }
                             VEyebrow { Layout.fillWidth: true; text: qsTr("帧率与节奏") }
                             VButton {
                                 objectName: "pro-meters-collapse"
@@ -1375,6 +1559,75 @@ VPage {
                     PerfOrbs { visible: meter3.wide; size: 50; Layout.alignment: Qt.AlignVCenter }
                 }
                 StatusSummary { Layout.fillWidth: true }
+            }
+        }
+
+        // Fork: the gaps between cards. Drag one to give the cards either side
+        // of it more or less room (they resize as you drag); double-click it to
+        // share the width the default way again.
+        Repeater {
+            model: Math.max(0, meters.shown.length - 1)
+            MouseArea {
+                id: cardSplit
+                required property int index
+                readonly property string leftKey: meters.shown[index] || ""
+                readonly property string rightKey: meters.shown[index + 1] || ""
+                objectName: "pro-meter-split-" + index
+                visible: meters.dragKey === "" && leftKey !== "" && rightKey !== ""
+                z: 4
+                x: meters.cardX(rightKey) - meters.gap
+                y: 0
+                width: meters.gap
+                height: meters.height
+                cursorShape: Qt.SplitHCursor
+                hoverEnabled: true
+                preventStealing: true
+                property real pressX: 0
+                property real leftW: 0
+                property real rightW: 0
+                property var startWeights: null
+                onPressed: mouse => {
+                    pressX = mapToItem(meters, mouse.x, 0).x
+                    leftW = meters.cardWidth(leftKey)
+                    rightW = meters.cardWidth(rightKey)
+                    startWeights = Object.assign({}, meters.weights)
+                    meters.liveWeights = Object.assign({}, startWeights)
+                }
+                onPositionChanged: mouse => {
+                    if (!pressed || !startWeights) return
+                    const pair = leftW + rightW
+                    const left = Math.max(meters.minCard, Math.min(pair - meters.minCard,
+                                          leftW + mapToItem(meters, mouse.x, 0).x - pressX))
+                    const total = startWeights[leftKey] + startWeights[rightKey]
+                    const next = Object.assign({}, startWeights)
+                    next[leftKey] = total * left / pair
+                    next[rightKey] = total - next[leftKey]
+                    meters.liveWeights = next
+                }
+                onReleased: {
+                    const done = meters.liveWeights
+                    meters.liveWeights = null
+                    if (done && startWeights && done[leftKey] !== startWeights[leftKey]) root.saveMetersWeights(done)
+                    startWeights = null
+                }
+                onCanceled: { meters.liveWeights = null; startWeights = null }
+                onDoubleClicked: veyra.setPreference("listMetersWeights", "")
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: 3
+                    height: cardSplit.containsMouse || cardSplit.pressed ? 44 : 28
+                    radius: 1.5
+                    color: cardSplit.pressed ? Theme.accent : Qt.rgba(1, 1, 1, 0.28)
+                    opacity: cardSplit.containsMouse || cardSplit.pressed ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: Theme.d(150) } }
+                    Behavior on height { NumberAnimation { duration: Theme.d(180); easing.type: Easing.OutCubic } }
+                }
+                ToolTip {
+                    visible: cardSplit.containsMouse && !cardSplit.pressed
+                    delay: 600
+                    y: cardSplit.mouseY + 16
+                    text: qsTr("Drag to resize these two cards · double-click to reset widths")
+                }
             }
         }
     }
@@ -2411,9 +2664,13 @@ VPage {
                 Layout.fillWidth: true
                 Layout.margins: 10
                 spacing: 8
-                VDot { Layout.alignment: Qt.AlignTop; Layout.topMargin: 5; off: !veyra.running; warn: veyra.captureRecovering; err: veyra.failed }
+                // Fork: the run status now sits in the Signal card under the picture.
+                // It stays here only while that card is hidden (stats collapsed, or
+                // the picture column too narrow for it).
+                VDot { visible: !meter1.visible || !meters.visible; Layout.alignment: Qt.AlignTop; Layout.topMargin: 5; off: !veyra.running; warn: veyra.captureRecovering; err: veyra.failed }
                 Text {
-                    objectName: "pro-inspector-status"
+                    objectName: "pro-inspector-status-fallback"
+                    visible: !meter1.visible || !meters.visible
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
                     text: veyra.statusText
@@ -2422,6 +2679,7 @@ VPage {
                     font.pixelSize: Theme.fsSmall
                     wrapMode: Text.Wrap
                 }
+                Item { Layout.fillWidth: true; visible: meter1.visible && meters.visible }
                 VButton {
                     objectName: "pro-reset-current-page"
                     Layout.alignment: Qt.AlignTop

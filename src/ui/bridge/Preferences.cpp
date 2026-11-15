@@ -212,6 +212,23 @@ bool QmlPlayerBridge::setPreference(const QString& key, const QVariant& value) {
         stored = n;
     } else if (flags.contains(key)) {
         stored = value.toBool();
+    } else if (key == QLatin1String("listMetersOrder")) {
+        // Fork: the stats cards' left-to-right order, e.g. "rate,signal,stages".
+        const QStringList cards = value.toString().split(QLatin1Char(','));
+        QStringList sorted = cards; sorted.sort();
+        if (!value.toString().isEmpty() && sorted != QStringList{QStringLiteral("rate"), QStringLiteral("signal"), QStringLiteral("stages")}) return false;
+        stored = value.toString();
+    } else if (key == QLatin1String("listMetersWeights")) {
+        // Fork: the stats cards' relative widths, "signal,stages,rate" (empty: default).
+        const QStringList parts = value.toString().split(QLatin1Char(','));
+        if (!value.toString().isEmpty()) {
+            if (parts.size() != 3) return false;
+            for (const auto& part : parts) {
+                bool ok = false; const double w = part.toDouble(&ok);
+                if (!ok || w < 0.05 || w > 20) return false;
+            }
+        }
+        stored = value.toString();
     } else if (key == QLatin1String("nrResidualView") || key == QLatin1String("nrCorrectionView")) {
         const auto view = value.toString();
         if (view != QLatin1String("web") && view != QLatin1String("list")) return false;

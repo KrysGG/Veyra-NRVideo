@@ -33,13 +33,22 @@ Item {
     }
     onShownChanged: ring.requestPaint()
     onToneChanged: ring.requestPaint()
-    Canvas {
-        id: ring
+    // The ring's footprint: the label and value are laid out against it.
+    Item {
+        id: ringBox
         width: orb.size; height: orb.size
         anchors.horizontalCenter: parent.horizontalCenter
+    }
+    // Fork: the canvas reaches past the ring by the glow's size, so the glow
+    // fades out instead of being cut off square at the ring's box.
+    Canvas {
+        id: ring
+        readonly property int glow: 12
+        x: ringBox.x - glow; y: ringBox.y - glow
+        width: orb.size + glow * 2; height: orb.size + glow * 2
         onPaint: {
             const c = getContext("2d"); c.reset()
-            const r = width / 2 - 4, cx = width / 2, cy = height / 2
+            const r = orb.size / 2 - 4, cx = width / 2, cy = height / 2
             c.lineWidth = 5; c.lineCap = "round"
             c.strokeStyle = Qt.rgba(1, 1, 1, 0.08)
             c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.stroke()
@@ -51,7 +60,7 @@ Item {
         }
     }
     Text {
-        anchors.centerIn: ring
+        anchors.centerIn: ringBox
         width: orb.size - 12
         horizontalAlignment: Text.AlignHCenter
         text: orb.value
@@ -64,7 +73,7 @@ Item {
     Text {
         id: labelText
         visible: orb.showLabel
-        anchors.top: ring.bottom; anchors.topMargin: 4
+        anchors.top: ringBox.bottom; anchors.topMargin: 4
         anchors.horizontalCenter: parent.horizontalCenter
         text: orb.label
         horizontalAlignment: Text.AlignHCenter
