@@ -86,6 +86,12 @@ void QmlPlayerBridge::openDependencyDownload(const QString& id) {
     const auto* d = findDependency(list, id);
     if (!d || !QDesktopServices::openUrl(QUrl(d->url))) emit notice(tr("无法打开浏览器"), true);
 }
+void QmlPlayerBridge::openDownloadsFolder() {
+    // Step 2 starts where the browser saved the zip.
+    QString dir = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
+    if (dir.isEmpty()) dir = QDir::homePath();
+    if (!QDesktopServices::openUrl(QUrl::fromLocalFile(dir))) emit notice(tr("无法打开目录：%1").arg(dir), true);
+}
 void QmlPlayerBridge::openDependencyFolder(const QString& id) {
     const auto list = dependencies();
     const auto* d = findDependency(list, id);

@@ -27,6 +27,14 @@ ColumnLayout {
     readonly property bool dlssReady: dlssSr.present === true && dlssFg.present === true
     // The ANR steps are an opt-in experiment; open them when ANR is the only thing missing.
     property bool anrOpen: false
+    property bool linuxOpen: false
+    // runtime\experimental (portable package) or runtime_local\nvidia (source build):
+    // the part under Veyra's own folder, for the Linux steps.
+    function relativeFolder(path) {
+        const p = String(path || "").replace(/\\/g, "/")
+        const i = p.search(/\/runtime(_local)?\//)
+        return i >= 0 ? p.substring(i + 1) : p
+    }
     function folderName(path) {
         const parts = String(path || "").split(/[\\/]/).filter(p => p.length > 0)
         return parts.length ? parts[parts.length - 1] : ""
@@ -243,11 +251,66 @@ ColumnLayout {
         }
     }
 
+    // A right-click menu, with the entry to pick highlighted.
+    component MenuMock: Rectangle {
+        id: menu
+        property var items: []
+        property int pick: -1
+        Layout.alignment: Qt.AlignVCenter
+        implicitWidth: 150
+        implicitHeight: menuCol.implicitHeight + 8
+        radius: 7
+        color: Theme.popover
+        border.width: 1
+        border.color: Theme.stroke2
+        ColumnLayout {
+            id: menuCol
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.margins: 4
+            spacing: 1
+            Repeater {
+                model: menu.items
+                Rectangle {
+                    required property var modelData
+                    required property int index
+                    Layout.fillWidth: true
+                    implicitHeight: 22
+                    radius: 4
+                    color: index === menu.pick ? Theme.accentSoft : "transparent"
+                    border.width: index === menu.pick ? 1 : 0
+                    border.color: Theme.accent
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.left: parent.left
+                        anchors.leftMargin: 8
+                        text: modelData
+                        color: index === menu.pick ? Theme.t1 : Theme.t3
+                        font.family: Theme.fontUi
+                        font.pixelSize: 11
+                    }
+                }
+            }
+        }
+    }
+    // A plain note block inside a collapsible section.
+    component Note: Text {
+        Layout.fillWidth: true
+        color: Theme.t2
+        font.family: Theme.fontUi
+        font.pixelSize: Theme.fsBody
+        wrapMode: Text.WordWrap
+        textFormat: Text.StyledText
+    }
+
     // --- page ----------------------------------------------------------------
+    // Written for someone who rarely works with files: every step starts from the
+    // Downloads folder, names exactly what to click, and the buttons open the folders.
     VH1 { text: qsTr("NVIDIA 组件") }
     Text {
         Layout.fillWidth: true
-        text: qsTr("DLSS 超分辨率和 DLSS 帧生成需要 NVIDIA 的运行文件。Veyra 不附带也不代为下载它们：请从 NVIDIA 官方发布页下载，再按下面的步骤放进 Veyra 的组件文件夹。放好后几秒内自动识别，不用重启。")
+        text: qsTr("DLSS 超分辨率和 DLSS 帧生成需要 NVIDIA 的两个免费文件。Veyra 不能附带它们，但安装只需几分钟：下载、解压、把两个文件拖进来。不用重启。")
         color: Theme.t2
         font.family: Theme.fontUi
         font.pixelSize: Theme.fsBody
@@ -281,8 +344,8 @@ ColumnLayout {
     Step {
         number: 1
         done: guide.dlssReady
-        title: qsTr("下载 NVIDIA DLSS SDK")
-        text: qsTr("打开 NVIDIA 在 GitHub 上的官方发布页（DLSS SDK v310.9.1，本版本按它验证），在 Assets 里下载 <b>Source code (zip)</b>。")
+        title: qsTr("下载 NVIDIA DLSS")
+        text: qsTr("点击下面的橙色按钮，浏览器会打开 NVIDIA 的官方页面（DLSS SDK v310.9.1）。往下滚到 <b>Assets</b>，点击 <b>Source code (zip)</b>。文件会保存到你的<b>下载</b>文件夹。")
         extra: [
             VButton { objectName: "deps-download-dlss"; primary: true; iconName: "external"; text: qsTr("打开 NVIDIA 下载页"); onClicked: veyra.openDependencyDownload("dlss-fg") },
             Picture {
@@ -291,6 +354,7 @@ ColumnLayout {
                     title: "DLSS 310.9.1 SDK · NVIDIA/DLSS"
                     address: "github.com/NVIDIA/DLSS/releases/tag/v310.9.1"
                     rows: [
+                        { text: "Assets", kind: "file", dim: true },
                         { text: "Source code (zip)", kind: "zip", hl: true },
                         { text: "Source code (tar.gz)", kind: "zip", dim: true }
                     ]
@@ -302,13 +366,25 @@ ColumnLayout {
     Step {
         number: 2
         done: guide.dlssReady
-        title: qsTr("解压，找到两个 DLL")
-        text: qsTr("解压下载的 zip，依次打开 <b>lib → Windows_x86_64 → rel</b>，找到 <b>nvngx_dlss.dll</b> 和 <b>nvngx_dlssg.dll</b>。同目录的其他文件不需要。")
+        title: qsTr("解压下载的文件")
+        text: qsTr("点击“打开下载文件夹”。右键点击 <b>DLSS-310.9.1.zip</b>，选择<b>全部解压缩…</b>，再点<b>解压缩</b>。在新打开的文件夹里依次双击 <b>lib</b> → <b>Windows_x86_64</b> → <b>rel</b>。")
         extra: [
+            VButton { objectName: "deps-open-downloads"; iconName: "folder"; text: qsTr("打开下载文件夹"); onClicked: veyra.openDownloadsFolder() },
+            Picture {
+                MockWindow {
+                    title: qsTr("下载")
+                    address: qsTr("此电脑 › 下载")
+                    rows: [
+                        { text: "DLSS-310.9.1.zip", kind: "zip", hl: true },
+                        { text: "Veyra.zip", kind: "zip", dim: true }
+                    ]
+                }
+                MenuMock { items: [qsTr("打开"), qsTr("全部解压缩…"), qsTr("复制")]; pick: 1 }
+            },
             Picture {
                 MockWindow {
                     title: "rel"
-                    address: "DLSS-310.9.1\\lib\\Windows_x86_64\\rel"
+                    address: qsTr("下载") + " › DLSS-310.9.1 › lib › Windows_x86_64 › rel"
                     rows: [
                         { text: "nvngx_dlss.dll", kind: "dll", hl: true },
                         { text: "nvngx_dlssd.dll", kind: "dll", dim: true },
@@ -322,14 +398,15 @@ ColumnLayout {
     Step {
         number: 3
         done: guide.dlssReady
-        title: qsTr("拖进 Veyra 的组件文件夹")
-        text: qsTr("点击“打开目标文件夹”，把这两个 DLL 从 rel 拖进打开的窗口。目标文件夹：<br><font face=\"Consolas\">%1</font>").arg(guide.dlssFg.folder || "")
+        title: qsTr("把两个文件拖进 Veyra")
+        text: qsTr("点击“打开 Veyra 的组件文件夹”。现在有两个窗口：<b>rel</b> 和 Veyra 的文件夹（按 <b>Win+←</b> 和 <b>Win+→</b> 可以把它们并排）。按住 <b>Ctrl</b> 点击 <b>nvngx_dlss.dll</b> 和 <b>nvngx_dlssg.dll</b> 选中两个文件，拖到 Veyra 的窗口里松开。如果 Windows 询问权限，点击<b>继续</b>。")
         extra: [
-            VButton { objectName: "deps-open-dlss"; iconName: "folder"; text: qsTr("打开目标文件夹"); onClicked: veyra.openDependencyFolder("dlss-fg") },
+            VButton { objectName: "deps-open-dlss"; primary: !guide.dlssReady; iconName: "folder"; text: qsTr("打开 Veyra 的组件文件夹"); onClicked: veyra.openDependencyFolder("dlss-fg") },
+            Note { text: qsTr("文件夹位置：%1").arg(guide.dlssFg.folder || ""); color: Theme.t3; font.pixelSize: Theme.fsSmall },
             Picture {
                 MockWindow {
                     title: "rel"
-                    address: "DLSS-310.9.1\\lib\\Windows_x86_64\\rel"
+                    address: qsTr("下载") + " › DLSS-310.9.1 › … › rel"
                     rows: [
                         { text: "nvngx_dlss.dll", kind: "dll", hl: true },
                         { text: "nvngx_dlssg.dll", kind: "dll", hl: true }
@@ -338,7 +415,7 @@ ColumnLayout {
                 DragArrow { }
                 MockWindow {
                     target: true
-                    title: guide.folderName(guide.dlssFg.folder)
+                    title: "Veyra · " + guide.folderName(guide.dlssFg.folder)
                     address: guide.dlssFg.folder || ""
                     rows: [
                         { text: "nvngx_dlss.dll", kind: "dll", ok: guide.dlssSr.present === true, dim: guide.dlssSr.present !== true },
@@ -355,7 +432,7 @@ ColumnLayout {
         done: guide.dlssReady
         title: guide.dlssReady ? qsTr("DLSS 已就绪") : qsTr("确认")
         text: guide.dlssReady
-              ? qsTr("两个文件都已找到。超分和补帧里的 DLSS 选项现在可以使用。")
+              ? qsTr("两个文件都找到了，超分和补帧里的 DLSS 选项现在可以使用。下载的 zip 和解压出的文件夹现在可以删除。")
               : qsTr("上方状态变成“已就绪”即完成。如果文件已放好仍显示缺少，确认文件名没有被改成“nvngx_dlss (1).dll”之类，且没有放进子文件夹。")
     }
 
@@ -404,14 +481,19 @@ ColumnLayout {
         visible: guide.anrOpen
         number: 2
         done: guide.anr.present === true
-        title: qsTr("把 zip 里的全部文件拖进 anr 文件夹")
-        text: qsTr("解压 addon.zip，把里面<b>所有文件</b>（包括 nvngx_dlssg.dll 和模型文件）拖进 anr 文件夹。按钮会在需要时自动建好这个文件夹：<br><font face=\"Consolas\">%1</font>").arg(guide.anr.folder || "")
+        title: qsTr("解压，再把全部文件拖进 anr 文件夹")
+        text: qsTr("在下载文件夹里右键点击 addon.zip，选择<b>全部解压缩…</b>，再点<b>解压缩</b>。在新打开的文件夹里按 <b>Ctrl+A</b> 选中全部文件，拖进 anr 文件夹（点击下面的按钮打开它，没有的话会自动建好）。")
         extra: [
-            VButton { objectName: "deps-open-anr"; iconName: "folder"; text: qsTr("打开 anr 文件夹"); onClicked: veyra.openDependencyFolder("anr") },
+            Row {
+                spacing: 8
+                VButton { objectName: "deps-open-downloads-anr"; iconName: "folder"; text: qsTr("打开下载文件夹"); onClicked: veyra.openDownloadsFolder() }
+                VButton { objectName: "deps-open-anr"; iconName: "folder"; text: qsTr("打开 anr 文件夹"); onClicked: veyra.openDependencyFolder("anr") }
+            },
+            Note { text: qsTr("文件夹位置：%1").arg(guide.anr.folder || ""); color: Theme.t3; font.pixelSize: Theme.fsSmall },
             Picture {
                 MockWindow {
                     title: "anr-fg-addon"
-                    address: "Downloads\\anr-fg-addon"
+                    address: qsTr("下载") + " › anr-fg-addon"
                     rows: [
                         { text: "nvngx_dlssg.dll", kind: "dll", hl: true },
                         { text: qsTr("模型和其余文件…"), kind: "file", hl: true }
@@ -420,12 +502,36 @@ ColumnLayout {
                 DragArrow { }
                 MockWindow {
                     target: true
-                    title: "anr"
+                    title: "Veyra · anr"
                     address: guide.anr.folder || ""
                     rows: guide.anr.present ? [{ text: "nvngx_dlssg.dll", kind: "dll", ok: true }] : []
                     dropText: guide.anr.present ? "" : qsTr("放到这里")
                 }
             }
         ]
+    }
+
+    // --- Linux (not tested) -------------------------------------------------------
+    VGroup {
+        Layout.topMargin: 6
+        VRow {
+            label: qsTr("Linux（未测试）")
+            hint: qsTr("通过 Wine / Proton 运行 Veyra 时的步骤；尚未测试")
+            VButton {
+                objectName: "deps-linux-toggle"
+                ghost: true
+                text: guide.linuxOpen ? qsTr("收起") : qsTr("查看步骤")
+                trailingIcon: "down"
+                onClicked: guide.linuxOpen = !guide.linuxOpen
+            }
+        }
+        ColumnLayout {
+            visible: guide.linuxOpen
+            Layout.fillWidth: true
+            Layout.bottomMargin: 12
+            spacing: 6
+            Note { text: qsTr("Veyra 是 Windows 程序，在 Linux 上只能通过 Wine 或 Proton 运行，这种用法<b>没有测试过</b>。文件和步骤相同：") }
+            Note { text: qsTr("1. 用上面的按钮下载同一个 zip。<br>2. 在文件管理器里右键点击 zip，选择<b>解压到此处</b>，打开 <b>lib/Windows_x86_64/rel</b>。<br>3. 把 nvngx_dlss.dll 和 nvngx_dlssg.dll 复制到 Veyra 文件夹里的 <b>%1</b> 文件夹。<br>4. DLSS 需要 NVIDIA 显卡和 NVIDIA 专有驱动；用 Proton 时还需要设置环境变量 <b>PROTON_ENABLE_NVAPI=1</b>。").arg(guide.relativeFolder(guide.dlssFg.folder)) }
+        }
     }
 }

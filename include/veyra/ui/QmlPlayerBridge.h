@@ -1455,6 +1455,7 @@ public:
     Q_INVOKABLE void refreshNvidiaDependencies();
     Q_INVOKABLE void openDependencyDownload(const QString& id);
     Q_INVOKABLE void openDependencyFolder(const QString& id);
+    Q_INVOKABLE void openDownloadsFolder();
 
 signals:
     void playlistRequested();

@@ -603,6 +603,13 @@
    "ja": "1 分"
   },
   {
+   "zh": "1. 用上面的按钮下载同一个 zip。<br>2. 在文件管理器里右键点击 zip，选择<b>解压到此处</b>，打开 <b>lib/Windows_x86_64/rel</b>。<br>3. 把 nvngx_dlss.dll 和 nvngx_dlssg.dll 复制到 Veyra 文件夹里的 <b>%1</b> 文件夹。<br>4. DLSS 需要 NVIDIA 显卡和 NVIDIA 专有驱动；用 Proton 时还需要设置环境变量 <b>PROTON_ENABLE_NVAPI=1</b>。",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "1. 用上面的按鈕下載同一個 zip。<br>2. 在檔案管理器裡右鍵點擊 zip，選擇<b>解壓縮到此處</b>，開啟 <b>lib/Windows_x86_64/rel</b>。<br>3. 把 nvngx_dlss.dll 和 nvngx_dlssg.dll 複製到 Veyra 資料夾裡的 <b>%1</b> 資料夾。<br>4. DLSS 需要 NVIDIA 顯示卡和 NVIDIA 專有驅動；用 Proton 時還需要設定環境變數 <b>PROTON_ENABLE_NVAPI=1</b>。",
+   "en": "1. Download the same zip with the button above.<br>2. In your file manager, right-click the zip, choose <b>Extract Here</b>, and open <b>lib/Windows_x86_64/rel</b>.<br>3. Copy nvngx_dlss.dll and nvngx_dlssg.dll into the <b>%1</b> folder inside your Veyra folder.<br>4. DLSS needs an NVIDIA GPU with NVIDIA's proprietary driver. With Proton, also set the environment variable <b>PROTON_ENABLE_NVAPI=1</b>.",
+   "ja": "1. 上のボタンで同じ zip をダウンロードします。<br>2. ファイルマネージャーで zip を右クリックし、<b>ここに展開</b>を選んで <b>lib/Windows_x86_64/rel</b> を開きます。<br>3. nvngx_dlss.dll と nvngx_dlssg.dll を Veyra フォルダー内の <b>%1</b> フォルダーへコピーします。<br>4. DLSS には NVIDIA GPU と NVIDIA のプロプライエタリドライバーが必要です。Proton では環境変数 <b>PROTON_ENABLE_NVAPI=1</b> も設定してください。"
+  },
+  {
    "zh": "10 分钟",
    "src": "qml/SettingsPage.qml",
    "zh-TW": "10 分鐘",
@@ -1093,11 +1100,11 @@
    "ja": "DLSS 超解像"
   },
   {
-   "zh": "DLSS 超分辨率和 DLSS 帧生成需要 NVIDIA 的运行文件。Veyra 不附带也不代为下载它们：请从 NVIDIA 官方发布页下载，再按下面的步骤放进 Veyra 的组件文件夹。放好后几秒内自动识别，不用重启。",
+   "zh": "DLSS 超分辨率和 DLSS 帧生成需要 NVIDIA 的两个免费文件。Veyra 不能附带它们，但安装只需几分钟：下载、解压、把两个文件拖进来。不用重启。",
    "src": "qml/DependencyGuide.qml",
-   "zh-TW": "DLSS 超解析度和 DLSS 幀生成需要 NVIDIA 的執行檔案。Veyra 不附帶也不代為下載它們：請從 NVIDIA 官方發佈頁下載，再依下面的步驟放進 Veyra 的元件資料夾。放好後幾秒內自動識別，不用重新啟動。",
-   "en": "DLSS Super Resolution and DLSS Frame Generation need NVIDIA's runtime files. Veyra does not include or download them for you: get them from NVIDIA's official release page, then follow the steps below to put them in Veyra's component folder. They are detected within a few seconds, no restart needed.",
-   "ja": "DLSS 超解像と DLSS フレーム生成には NVIDIA のランタイムファイルが必要です。Veyra には同梱されず、代わりにダウンロードもしません。NVIDIA の公式リリースページから入手し、下の手順で Veyra のコンポーネントフォルダーに入れてください。数秒で自動検出され、再起動は不要です。"
+   "zh-TW": "DLSS 超解析度和 DLSS 幀生成需要 NVIDIA 的兩個免費檔案。Veyra 不能附帶它們，但安裝只需幾分鐘：下載、解壓縮、把兩個檔案拖進來。不用重新啟動。",
+   "en": "DLSS Super Resolution and DLSS Frame Generation need two free files from NVIDIA. Veyra can't include them, but setup only takes a few minutes: download, unzip, and drag two files in. No restart needed.",
+   "ja": "DLSS 超解像と DLSS フレーム生成には NVIDIA の無料ファイルが 2 つ必要です。Veyra には同梱できませんが、数分で済みます：ダウンロード、展開、2 つのファイルをドラッグするだけ。再起動は不要です。"
   },
   {
    "zh": "DXGI 为显示器兼容方式，无鼠标指针；捕获显示器时不显示黄色边框，Veyra 自己也不会出现在截图和录屏里",
@@ -1504,6 +1511,13 @@
    "zh-TW": "Limited = 16–235，Full = 0–255。畫面發灰選「有限」，暗部全黑、亮部過曝選「完全」",
    "en": "Limited = 16–235, Full = 0–255. If the picture looks washed out choose Limited; if shadows crush to black and highlights blow out choose Full",
    "ja": "Limited = 16–235、Full = 0–255。映像が白っぽいなら「Limited」、暗部が黒つぶれ・明部が白飛びするなら「Full」"
+  },
+  {
+   "zh": "Linux（未测试）",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "Linux（未測試）",
+   "en": "Linux (not tested)",
+   "ja": "Linux（未テスト）"
   },
   {
    "zh": "MKV 不支持直接保留此编码，请排除此轨",
@@ -2332,6 +2346,13 @@
    "ja": "Veyra は無料のオープンソース。皆さんの支援が支えです"
   },
   {
+   "zh": "Veyra 是 Windows 程序，在 Linux 上只能通过 Wine 或 Proton 运行，这种用法<b>没有测试过</b>。文件和步骤相同：",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "Veyra 是 Windows 程式，在 Linux 上只能透過 Wine 或 Proton 執行，這種用法<b>沒有測試過</b>。檔案和步驟相同：",
+   "en": "Veyra is a Windows app. On Linux it can only run through Wine or Proton, and that has <b>not been tested</b>. The files and steps are the same:",
+   "ja": "Veyra は Windows アプリです。Linux では Wine または Proton 経由でしか動かず、<b>テストされていません</b>。ファイルと手順は同じです："
+  },
+  {
    "zh": "Veyra 本地诊断（复制前脱敏预览；不会上传）\n",
    "src": "src/base/Log.cpp",
    "zh-TW": "Veyra 本地診斷（複製前脫敏預覽；不會上傳）\n",
@@ -2913,6 +2934,13 @@
    "ja": "下へ移動"
   },
   {
+   "zh": "下载",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "下載",
+   "en": "Downloads",
+   "ja": "ダウンロード"
+  },
+  {
    "zh": "下载 %1 MB/s",
    "src": "src/ui/bridge/Playback.cpp",
    "zh-TW": "下載 %1 MB/s",
@@ -2927,11 +2955,11 @@
    "ja": "ANR フレーム生成ファイルをダウンロード"
   },
   {
-   "zh": "下载 NVIDIA DLSS SDK",
+   "zh": "下载 NVIDIA DLSS",
    "src": "qml/DependencyGuide.qml",
-   "zh-TW": "下載 NVIDIA DLSS SDK",
-   "en": "Download the NVIDIA DLSS SDK",
-   "ja": "NVIDIA DLSS SDK をダウンロード"
+   "zh-TW": "下載 NVIDIA DLSS",
+   "en": "Download NVIDIA DLSS",
+   "ja": "NVIDIA DLSS をダウンロード"
   },
   {
    "zh": "下载 —",
@@ -3102,11 +3130,11 @@
    "ja": "パケット損失 %1"
   },
   {
-   "zh": "两个文件都已找到。超分和补帧里的 DLSS 选项现在可以使用。",
+   "zh": "两个文件都找到了，超分和补帧里的 DLSS 选项现在可以使用。下载的 zip 和解压出的文件夹现在可以删除。",
    "src": "qml/DependencyGuide.qml",
-   "zh-TW": "兩個檔案都已找到。超解析和補幀裡的 DLSS 選項現在可以使用。",
-   "en": "Both files were found. The DLSS options in super resolution and frame generation are ready to use.",
-   "ja": "両方のファイルが見つかりました。超解像とフレーム生成の DLSS オプションを使えます。"
+   "zh-TW": "兩個檔案都找到了，超解析和補幀裡的 DLSS 選項現在可以使用。下載的 zip 和解壓縮出的資料夾現在可以刪除。",
+   "en": "Both files were found, so the DLSS options in super resolution and frame generation are ready. You can now delete the downloaded zip and the extracted folder.",
+   "ja": "両方のファイルが見つかりました。超解像とフレーム生成の DLSS オプションを使えます。ダウンロードした zip と展開したフォルダーは削除して構いません。"
   },
   {
    "zh": "两台电脑接在同一个局域网，这里会自动出现；也可以在下面手填它的 IP。首次使用需要配对。",
@@ -4297,6 +4325,13 @@
    "zh-TW": "全部膚色：不依賴人臉識別，畫面中所有膚色區域都會處理",
    "en": "All skin: works without face detection; every skin-coloured area of the picture is smoothed",
    "ja": "すべての肌色：顔検出を使わず、画面内の肌色の部分をすべて処理します"
+  },
+  {
+   "zh": "全部解压缩…",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "全部解壓縮…",
+   "en": "Extract All…",
+   "ja": "すべて展開…"
   },
   {
    "zh": "全部还原",
@@ -6202,6 +6237,13 @@
    "zh-TW": "在 PSNTools 網頁取得 Account ID，再到 PS5 串流視窗填入並配對。",
    "en": "Get your Account ID on PSNTools, then enter it in the PS5 streaming window to pair.",
    "ja": "PSNTools で Account ID を取得し、PS5 ストリーミング画面に入力してペアリングします。"
+  },
+  {
+   "zh": "在下载文件夹里右键点击 addon.zip，选择<b>全部解压缩…</b>，再点<b>解压缩</b>。在新打开的文件夹里按 <b>Ctrl+A</b> 选中全部文件，拖进 anr 文件夹（点击下面的按钮打开它，没有的话会自动建好）。",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "在下載資料夾裡右鍵點擊 addon.zip，選擇<b>全部解壓縮…</b>，再點<b>解壓縮</b>。在新開啟的資料夾裡按 <b>Ctrl+A</b> 選取全部檔案，拖進 anr 資料夾（點擊下面的按鈕開啟它，沒有的話會自動建立）。",
+   "en": "In your Downloads folder, right-click addon.zip, choose <b>Extract All…</b>, then click <b>Extract</b>. In the folder that opens, press <b>Ctrl+A</b> to select every file and drag them into the anr folder (the button below opens it and creates it if needed).",
+   "ja": "ダウンロードフォルダーで addon.zip を右クリックし、<b>すべて展開…</b>を選んで<b>展開</b>をクリックします。開いたフォルダーで <b>Ctrl+A</b> を押してすべて選択し、anr フォルダーへドラッグします（下のボタンで開けます。なければ作成されます）。"
   },
   {
    "zh": "在主机上打开 Sunshine 网页（https://主机IP:47990），进入「PIN」页，输入下面的数字并提交：",
@@ -9585,11 +9627,11 @@
    "ja": "NVIDIA のダウンロードページを開く"
   },
   {
-   "zh": "打开 NVIDIA 在 GitHub 上的官方发布页（DLSS SDK v310.9.1，本版本按它验证），在 Assets 里下载 <b>Source code (zip)</b>。",
+   "zh": "打开 Veyra 的组件文件夹",
    "src": "qml/DependencyGuide.qml",
-   "zh-TW": "開啟 NVIDIA 在 GitHub 上的官方發佈頁（DLSS SDK v310.9.1，本版本依它驗證），在 Assets 裡下載 <b>Source code (zip)</b>。",
-   "en": "Open NVIDIA's official GitHub release page (DLSS SDK v310.9.1, the version this build is tested with) and download <b>Source code (zip)</b> under Assets.",
-   "ja": "NVIDIA の GitHub 公式リリースページ（DLSS SDK v310.9.1、このバージョンで検証済み）を開き、Assets から <b>Source code (zip)</b> をダウンロードします。"
+   "zh-TW": "開啟 Veyra 的元件資料夾",
+   "en": "Open Veyra's component folder",
+   "ja": "Veyra のコンポーネントフォルダーを開く"
   },
   {
    "zh": "打开 Windows 录制设置",
@@ -9604,6 +9646,13 @@
    "zh-TW": "開啟 anr 資料夾",
    "en": "Open the anr folder",
    "ja": "anr フォルダーを開く"
+  },
+  {
+   "zh": "打开下载文件夹",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "開啟下載資料夾",
+   "en": "Open Downloads folder",
+   "ja": "ダウンロードフォルダーを開く"
   },
   {
    "zh": "打开字幕编码器",
@@ -9674,13 +9723,6 @@
    "zh-TW": "開啟目錄",
    "en": "Open folder",
    "ja": "フォルダーを開く"
-  },
-  {
-   "zh": "打开目标文件夹",
-   "src": "qml/DependencyGuide.qml",
-   "zh-TW": "開啟目標資料夾",
-   "en": "Open target folder",
-   "ja": "保存先フォルダーを開く"
   },
   {
    "zh": "打开美乐威采集通道失败",
@@ -9781,13 +9823,6 @@
    "ja": "この本体が見つかりません。アカウントから削除された可能性があります。本体の一覧を更新してください。"
   },
   {
-   "zh": "把 zip 里的全部文件拖进 anr 文件夹",
-   "src": "qml/DependencyGuide.qml",
-   "zh-TW": "把 zip 裡的全部檔案拖進 anr 資料夾",
-   "en": "Drag every file from the zip into the anr folder",
-   "ja": "zip 内のすべてのファイルを anr フォルダーへドラッグ"
-  },
-  {
    "zh": "把一个窗口或整块显示器作为片源",
    "src": "qml/ScreenSourceDialog.qml",
    "zh-TW": "把一個視窗或整塊顯示器作為片源",
@@ -9800,6 +9835,13 @@
    "zh-TW": "把一部分皮膚紋理留回來，避免塑膠感",
    "en": "Brings part of the skin texture back to avoid a plastic look",
    "ja": "肌の質感の一部を戻して、プラスチックのような見た目を防ぎます"
+  },
+  {
+   "zh": "把两个文件拖进 Veyra",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "把兩個檔案拖進 Veyra",
+   "en": "Drag the two files into Veyra",
+   "ja": "2 つのファイルを Veyra へドラッグ"
   },
   {
    "zh": "把当前设置另存为预设…",
@@ -9919,13 +9961,6 @@
    "zh-TW": "拖放",
    "en": "Drag",
    "ja": "ドラッグ"
-  },
-  {
-   "zh": "拖进 Veyra 的组件文件夹",
-   "src": "qml/DependencyGuide.qml",
-   "zh-TW": "拖進 Veyra 的元件資料夾",
-   "en": "Drag them into Veyra's component folder",
-   "ja": "Veyra のコンポーネントフォルダーへドラッグ"
   },
   {
    "zh": "按下新按键…",
@@ -10508,6 +10543,13 @@
    "zh-TW": "檔案大小：小 → 大",
    "en": "Size: smallest first",
    "ja": "サイズ：小さい順"
+  },
+  {
+   "zh": "文件夹位置：%1",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "資料夾位置：%1",
+   "en": "Folder: %1",
+   "ja": "フォルダー：%1"
   },
   {
    "zh": "文件已不存在",
@@ -12855,6 +12897,13 @@
    "ja": "このバージョンには Magewell SDK のサポートが含まれていません"
   },
   {
+   "zh": "此电脑 › 下载",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "本機 › 下載",
+   "en": "This PC › Downloads",
+   "ja": "PC › ダウンロード"
+  },
+  {
    "zh": "此补帧提供方暂不支持独立输出限帧，已保留设置",
    "src": "src/engine/VideoPresenter.cpp",
    "zh-TW": "此補幀提供方暫不支援獨立輸出限幀，已保留設定",
@@ -13373,11 +13422,25 @@
    "ja": "スライダーをクリックすると ← → でこの刻みで調整します。Esc か映像のクリックで矢印キーをシーク操作に戻します"
   },
   {
-   "zh": "点击“打开目标文件夹”，把这两个 DLL 从 rel 拖进打开的窗口。目标文件夹：<br><font face=\"Consolas\">%1</font>",
+   "zh": "点击“打开 Veyra 的组件文件夹”。现在有两个窗口：<b>rel</b> 和 Veyra 的文件夹（按 <b>Win+←</b> 和 <b>Win+→</b> 可以把它们并排）。按住 <b>Ctrl</b> 点击 <b>nvngx_dlss.dll</b> 和 <b>nvngx_dlssg.dll</b> 选中两个文件，拖到 Veyra 的窗口里松开。如果 Windows 询问权限，点击<b>继续</b>。",
    "src": "qml/DependencyGuide.qml",
-   "zh-TW": "點擊「開啟目標資料夾」，把這兩個 DLL 從 rel 拖進開啟的視窗。目標資料夾：<br><font face=\"Consolas\">%1</font>",
-   "en": "Click “Open target folder” and drag both DLLs from rel into the window that opens. Target folder:<br><font face=\"Consolas\">%1</font>",
-   "ja": "「保存先フォルダーを開く」をクリックし、2 つの DLL を rel から開いたウィンドウへドラッグします。保存先：<br><font face=\"Consolas\">%1</font>"
+   "zh-TW": "點擊「開啟 Veyra 的元件資料夾」。現在有兩個視窗：<b>rel</b> 和 Veyra 的資料夾（按 <b>Win+←</b> 和 <b>Win+→</b> 可以把它們並排）。按住 <b>Ctrl</b> 點擊 <b>nvngx_dlss.dll</b> 和 <b>nvngx_dlssg.dll</b> 選取兩個檔案，拖到 Veyra 的視窗裡放開。如果 Windows 詢問權限，點擊<b>繼續</b>。",
+   "en": "Click “Open Veyra's component folder”. You now have two windows: <b>rel</b> and Veyra's folder (press <b>Win+←</b> and <b>Win+→</b> to put them side by side). Hold <b>Ctrl</b> and click <b>nvngx_dlss.dll</b> and <b>nvngx_dlssg.dll</b> to select both, then drag them into Veyra's window and let go. If Windows asks for permission, click <b>Continue</b>.",
+   "ja": "「Veyra のコンポーネントフォルダーを開く」をクリックします。<b>rel</b> と Veyra のフォルダーの 2 つのウィンドウが開きます（<b>Win+←</b> と <b>Win+→</b> で並べられます）。<b>Ctrl</b> を押しながら <b>nvngx_dlss.dll</b> と <b>nvngx_dlssg.dll</b> をクリックして選択し、Veyra のウィンドウへドラッグして離します。Windows に許可を求められたら<b>続行</b>をクリックします。"
+  },
+  {
+   "zh": "点击“打开下载文件夹”。右键点击 <b>DLSS-310.9.1.zip</b>，选择<b>全部解压缩…</b>，再点<b>解压缩</b>。在新打开的文件夹里依次双击 <b>lib</b> → <b>Windows_x86_64</b> → <b>rel</b>。",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "點擊「開啟下載資料夾」。右鍵點擊 <b>DLSS-310.9.1.zip</b>，選擇<b>全部解壓縮…</b>，再點<b>解壓縮</b>。在新開啟的資料夾裡依序雙擊 <b>lib</b> → <b>Windows_x86_64</b> → <b>rel</b>。",
+   "en": "Click “Open Downloads folder”. Right-click <b>DLSS-310.9.1.zip</b>, choose <b>Extract All…</b>, then click <b>Extract</b>. In the folder that opens, double-click <b>lib</b>, then <b>Windows_x86_64</b>, then <b>rel</b>.",
+   "ja": "「ダウンロードフォルダーを開く」をクリックします。<b>DLSS-310.9.1.zip</b> を右クリックし、<b>すべて展開…</b>を選んで<b>展開</b>をクリックします。開いたフォルダーで <b>lib</b> → <b>Windows_x86_64</b> → <b>rel</b> の順にダブルクリックします。"
+  },
+  {
+   "zh": "点击下面的橙色按钮，浏览器会打开 NVIDIA 的官方页面（DLSS SDK v310.9.1）。往下滚到 <b>Assets</b>，点击 <b>Source code (zip)</b>。文件会保存到你的<b>下载</b>文件夹。",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "點擊下面的橘色按鈕，瀏覽器會開啟 NVIDIA 的官方頁面（DLSS SDK v310.9.1）。往下捲到 <b>Assets</b>，點擊 <b>Source code (zip)</b>。檔案會儲存到你的<b>下載</b>資料夾。",
+   "en": "Click the orange button below. Your browser opens NVIDIA's official page (DLSS SDK v310.9.1). Scroll down to <b>Assets</b> and click <b>Source code (zip)</b>. It saves to your <b>Downloads</b> folder.",
+   "ja": "下のオレンジ色のボタンをクリックすると、ブラウザーで NVIDIA の公式ページ（DLSS SDK v310.9.1）が開きます。<b>Assets</b> までスクロールし、<b>Source code (zip)</b> をクリックします。<b>ダウンロード</b>フォルダーに保存されます。"
   },
   {
    "zh": "点击右侧按键，再按下新的组合键即可重新绑定；Esc 取消。",
@@ -16033,25 +16096,18 @@
    "ja": "動画の最初のフレームを読み取れませんでした"
   },
   {
-   "zh": "解压 addon.zip，把里面<b>所有文件</b>（包括 nvngx_dlssg.dll 和模型文件）拖进 anr 文件夹。按钮会在需要时自动建好这个文件夹：<br><font face=\"Consolas\">%1</font>",
+   "zh": "解压下载的文件",
    "src": "qml/DependencyGuide.qml",
-   "zh-TW": "解壓 addon.zip，把裡面<b>所有檔案</b>（包括 nvngx_dlssg.dll 和模型檔案）拖進 anr 資料夾。按鈕會在需要時自動建立這個資料夾：<br><font face=\"Consolas\">%1</font>",
-   "en": "Extract addon.zip and drag <b>every file</b> in it (including nvngx_dlssg.dll and the model files) into the anr folder. The button creates the folder if it doesn't exist yet:<br><font face=\"Consolas\">%1</font>",
-   "ja": "addon.zip を展開し、中の<b>すべてのファイル</b>（nvngx_dlssg.dll とモデルファイルを含む）を anr フォルダーへドラッグします。フォルダーがなければボタンが作成します：<br><font face=\"Consolas\">%1</font>"
+   "zh-TW": "解壓縮下載的檔案",
+   "en": "Unzip the download",
+   "ja": "ダウンロードしたファイルを展開"
   },
   {
-   "zh": "解压下载的 zip，依次打开 <b>lib → Windows_x86_64 → rel</b>，找到 <b>nvngx_dlss.dll</b> 和 <b>nvngx_dlssg.dll</b>。同目录的其他文件不需要。",
+   "zh": "解压，再把全部文件拖进 anr 文件夹",
    "src": "qml/DependencyGuide.qml",
-   "zh-TW": "解壓下載的 zip，依序開啟 <b>lib → Windows_x86_64 → rel</b>，找到 <b>nvngx_dlss.dll</b> 和 <b>nvngx_dlssg.dll</b>。同目錄的其他檔案不需要。",
-   "en": "Extract the zip, open <b>lib → Windows_x86_64 → rel</b>, and find <b>nvngx_dlss.dll</b> and <b>nvngx_dlssg.dll</b>. The other files there aren't needed.",
-   "ja": "zip を展開し、<b>lib → Windows_x86_64 → rel</b> を開いて <b>nvngx_dlss.dll</b> と <b>nvngx_dlssg.dll</b> を見つけます。同じフォルダーの他のファイルは不要です。"
-  },
-  {
-   "zh": "解压，找到两个 DLL",
-   "src": "qml/DependencyGuide.qml",
-   "zh-TW": "解壓，找到兩個 DLL",
-   "en": "Extract and find the two DLLs",
-   "ja": "展開して 2 つの DLL を探す"
+   "zh-TW": "解壓縮，再把全部檔案拖進 anr 資料夾",
+   "en": "Unzip it, then drag every file into the anr folder",
+   "ja": "展開して、すべてのファイルを anr フォルダーへドラッグ"
   },
   {
    "zh": "解码",
@@ -17984,6 +18040,13 @@
    "zh-TW": "循序",
    "en": "Progressive",
    "ja": "プログレッシブ"
+  },
+  {
+   "zh": "通过 Wine / Proton 运行 Veyra 时的步骤；尚未测试",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "透過 Wine / Proton 執行 Veyra 時的步驟；尚未測試",
+   "en": "Steps for running Veyra through Wine / Proton; not tested",
+   "ja": "Wine / Proton で Veyra を動かす場合の手順。未テスト"
   },
   {
    "zh": "部分轨道当前封装装不下，未保留（详见队列说明）",

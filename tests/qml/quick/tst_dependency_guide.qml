@@ -5,7 +5,7 @@ import Veyra
 // 设置 → NVIDIA 组件 and the start-up notice (DependencyGuide / DependencyBanner).
 Rectangle {
     id: fixture
-    width: 760; height: 1900
+    width: 760; height: 3200
     color: Theme.card
     QtObject {
         id: backend
@@ -19,6 +19,7 @@ Rectangle {
         ]
         function openDependencyDownload(id) { calls = calls.concat(["download:" + id]) }
         function openDependencyFolder(id) { calls = calls.concat(["folder:" + id]) }
+        function openDownloadsFolder() { calls = calls.concat(["downloads"]) }
         function refreshNvidiaDependencies() { calls = calls.concat(["refresh"]) }
     }
     DependencyGuide { id: guide; property var veyra: backend; x: 20; y: 20; width: 700 }
@@ -40,9 +41,10 @@ Rectangle {
         }
         function test_buttons() {
             click("deps-download-dlss")
+            click("deps-open-downloads")
             click("deps-open-dlss")
             click("deps-refresh")
-            compare(backend.calls, ["download:dlss-fg", "folder:dlss-fg", "refresh"])
+            compare(backend.calls, ["download:dlss-fg", "downloads", "folder:dlss-fg", "refresh"])
         }
         function test_anrSteps() {
             verify(!findChild(guide, "deps-download-anr").visible)
@@ -50,8 +52,16 @@ Rectangle {
             compare(guide.anrOpen, true)
             waitForRendering(guide)
             click("deps-download-anr")
+            click("deps-open-downloads-anr")
             click("deps-open-anr")
-            compare(backend.calls, ["download:anr", "folder:anr"])
+            compare(backend.calls, ["download:anr", "downloads", "folder:anr"])
+        }
+        function test_linuxSteps() {
+            compare(guide.linuxOpen, false)
+            click("deps-linux-toggle")
+            compare(guide.linuxOpen, true)
+            // The Linux note names the folder under Veyra's own, not the full Windows path.
+            compare(guide.relativeFolder("C:\\Users\\You\\Downloads\\Veyra\\runtime\\experimental"), "runtime/experimental")
         }
         function test_ready() {
             const saved = backend.nvidiaDependencies
