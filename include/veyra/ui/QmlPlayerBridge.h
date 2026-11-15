@@ -432,6 +432,8 @@ class QmlPlayerBridge : public QObject {
     // Performance orbs and the status light (1.4.4 live status dashboard).
     Q_PROPERTY(double gpuUtilization READ gpuUtilization NOTIFY perfChanged)
     Q_PROPERTY(bool gpuUtilizationKnown READ gpuUtilizationKnown NOTIFY perfChanged)
+    Q_PROPERTY(QVariantList gpuUsages READ gpuUsages NOTIFY perfChanged)
+    Q_PROPERTY(QString fgGpuStatus READ fgGpuStatus NOTIFY perfChanged)
     Q_PROPERTY(QString runStatus READ runStatus NOTIFY perfChanged)
     Q_PROPERTY(QString runStatusLevel READ runStatusLevel NOTIFY perfChanged)
     Q_PROPERTY(QString runStatusDetail READ runStatusDetail NOTIFY perfChanged)
@@ -1113,6 +1115,9 @@ public:
     double audioCompensationMs() const;
     double gpuUtilization() const;
     bool gpuUtilizationKnown() const;
+    QVariantList gpuUsages() const;
+    QString fgGpuStatus() const;
+    QString fgGpuName() const;
     QString runStatus() const;
     QString runStatusLevel() const;
     QString runStatusDetail() const;

@@ -9,7 +9,7 @@ namespace veyra::diagnostics {
 // No image readback, no CPU waits. Samples carry the identity they measured.
 class GpuTimer {
     static constexpr unsigned stages=unsigned(GpuStage::Count),slots=4,stride=stages*2;
-    struct Pending{pipeline::FrameIdentity id;uint64_t mask=0;uint64_t fence=0;};
+    struct Pending{pipeline::FrameIdentity id;uint64_t mask=0;uint64_t fence=0;Microsoft::WRL::ComPtr<ID3D12Fence> object;};
     Microsoft::WRL::ComPtr<ID3D12QueryHeap> heap_;
     Microsoft::WRL::ComPtr<ID3D12Resource> readback_;
     std::array<Pending,slots> pending_{};uint64_t frequency_=0;int active_=-1;
@@ -25,16 +25,16 @@ public:
         hr=device->CreateCommittedResource(&hp,D3D12_HEAP_FLAG_NONE,&d,D3D12_RESOURCE_STATE_COPY_DEST,nullptr,IID_PPV_ARGS(&readback_));if(FAILED(hr)){log::error("gpu-timestamp",std::format("readback hr=0x{:X}",unsigned(hr)));return false;}return true;
     }
     void collect(ID3D12Fence* fence){if(!readback_||!fence)return;const auto completed=fence->GetCompletedValue();
-        for(unsigned slot=0;slot<slots;++slot){auto& p=pending_[slot];if(!p.fence||p.fence>completed)continue;void* data=nullptr;D3D12_RANGE range{slot*stride*8,(slot+1)*stride*8};auto hr=readback_->Map(0,&range,&data);if(FAILED(hr)){log::error("gpu-timestamp",std::format("Map hr=0x{:X}",unsigned(hr)));p.fence=0;continue;}
+        for(unsigned slot=0;slot<slots;++slot){auto& p=pending_[slot];if(!p.fence||p.fence>(p.object?p.object->GetCompletedValue():completed))continue;void* data=nullptr;D3D12_RANGE range{slot*stride*8,(slot+1)*stride*8};auto hr=readback_->Map(0,&range,&data);if(FAILED(hr)){log::error("gpu-timestamp",std::format("Map hr=0x{:X}",unsigned(hr)));p.fence=0;continue;}
             FrameMetrics m;m.identity=p.id;auto values=static_cast<const uint64_t*>(data)+slot*stride;
             for(unsigned stage=0;stage<stages;++stage)if(p.mask&(1ull<<stage)){auto& v=m.gpu[stage];v.begin=values[stage*2];v.end=values[stage*2+1];v.frequency=frequency_;if(v.end>=v.begin){v.state=SampleState::Measured;v.milliseconds=double(v.end-v.begin)*1000/frequency_;}else v.state=SampleState::Unavailable;
                 if(log::verboseFrameLogs())log::info("gpu-timestamp",std::format("frame={} epoch={} revision={} stage={} begin={} end={} frequency={} ms={} (GPU queue timestamps)",p.id.sourceFrameId,p.id.epoch,p.id.settingsRevision,stage,v.begin,v.end,frequency_,v.milliseconds.value_or(-1)));
             }
-            D3D12_RANGE written{0,0};readback_->Unmap(0,&written);if(p.fence>=lastCollectedFence_){last_=m;lastCollectedFence_=p.fence;}
+            D3D12_RANGE written{0,0};readback_->Unmap(0,&written);if(p.object||p.fence>=lastCollectedFence_){last_=m;if(!p.object)lastCollectedFence_=p.fence;}
             if(recordCompleted_){
                 if(completed_.size()==64){completed_.pop_front();++overflow_;if((overflow_&(overflow_-1))==0)log::warn("gpu-timestamp",std::format("timing telemetry overflow={} (old timing samples dropped, not video frames)",overflow_));}
                 completed_.push_back({m.identity,m.gpu});
-            }p.fence=0;
+            }p.fence=0;p.object.Reset();
         }
     }
     void frame(pipeline::FrameIdentity id,ID3D12Fence* fence){collect(fence);active_=-1;if(!heap_||!readback_)return;
@@ -44,7 +44,7 @@ public:
     void identity(pipeline::FrameIdentity id){if(active_>=0)pending_[active_].id=id;}
     void mark(ID3D12GraphicsCommandList* list,GpuStage stage,bool end=false){if(active_<0)return;unsigned i=unsigned(stage);list->EndQuery(heap_.Get(),D3D12_QUERY_TYPE_TIMESTAMP,active_*stride+i*2+unsigned(end));if(end)pending_[active_].mask|=1ull<<i;}
     void resolve(ID3D12GraphicsCommandList* list){if(active_<0)return;auto mask=pending_[active_].mask;for(unsigned i=0;i<stages;++i)if(mask&(1ull<<i)){unsigned index=active_*stride+i*2;list->ResolveQueryData(heap_.Get(),D3D12_QUERY_TYPE_TIMESTAMP,index,2,readback_.Get(),index*8);}}
-    void submitted(uint64_t fence){if(active_>=0)pending_[active_].fence=fence;active_=-1;}
+    void submitted(uint64_t fence,ID3D12Fence* object=nullptr){if(active_>=0){pending_[active_].fence=fence;pending_[active_].object=object;}active_=-1;}
     const FrameMetrics& last()const{return last_;}
     void recordCompleted(){recordCompleted_=true;}
     std::vector<GpuFrameTiming> takeCompleted(){std::vector<GpuFrameTiming> result;result.reserve(completed_.size());while(!completed_.empty()){result.push_back(std::move(completed_.front()));completed_.pop_front();}return result;}

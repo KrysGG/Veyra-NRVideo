@@ -797,6 +797,9 @@ static int runApplication(int argc, char** argv, QString& restartProgram, QStrin
         const bool hasValue = i + 1 < args.size();
         if (a == QLatin1String("--page") && hasValue) {
             bridge.setInitialPage(args.at(++i));
+        } else if ((a == QLatin1String("--theme") || a == QLatin1String("--settings-section")) && hasValue) {
+            // Fork test switches: preview a theme / open a settings section without saving.
+            testOptions.insert(a == QLatin1String("--theme") ? QStringLiteral("theme") : QStringLiteral("settingsSection"), args.at(++i));
         } else if (a == QLatin1String("--tab") && hasValue) {
             testOptions.insert(QStringLiteral("tab"), args.at(++i));
         } else if (a == QLatin1String("--dialog") && hasValue) {

@@ -36,6 +36,16 @@ struct AdapterInfo {
 // processes, which create their own device, inherit it.
 void setPreferredAdapterLuid(uint64_t luid);
 uint64_t preferredAdapterLuid();
+// Fork: GPU that runs NVIDIA VFG frame generation (0 = same GPU as the graph).
+// Another GPU gets its own device; frames cross over a shared cross-adapter heap.
+// Env VEYRA_FG_ADAPTER_LUID, inherited by worker processes like the compute one.
+void setFrameGenerationAdapterLuid(uint64_t luid);
+uint64_t frameGenerationAdapterLuid();
+// What the last VFG setup actually did, for the settings UI.
+enum class FgSplitState { Off, Active, Fallback };
+void setFrameGenerationSplitStatus(FgSplitState state, std::string detail);
+FgSplitState frameGenerationSplitState();
+std::string frameGenerationSplitDetail();
 
 struct DeviceContextDesc {
     bool enableDebugLayer = false;

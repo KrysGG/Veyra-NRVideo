@@ -25,8 +25,8 @@ Item {
             radius: backdrop.radius
             Image {
                 anchors.fill: parent
-                visible: Theme.backdropLevel !== 0
-                source: Theme.backdropLevel === 2 ? "backdrop-strong.png" : "backdrop.png"
+                visible: Theme.backdropLevel !== 0 || Theme.vice
+                source: Theme.backdropSource
                 smooth: true
             }
             Rectangle {
@@ -55,7 +55,7 @@ Item {
                 visible: false
                 width: backdrop.width
                 height: backdrop.height
-                source: Theme.backdropLevel === 2 ? "backdrop-strong.png" : "backdrop.png"
+                source: Theme.backdropSource
                 smooth: true
             }
 
@@ -63,7 +63,7 @@ Item {
                 strokeWidth: 1
                 strokeColor: backdrop.strokeColor
                 fillColor: Theme.bgOuter
-                fillItem: Theme.backdropLevel === 0 ? null : fill
+                fillItem: Theme.backdropLevel === 0 && !Theme.vice ? null : fill
                 PathRectangle {
                     x: 0.5; y: 0.5
                     width: backdrop.width - 1; height: backdrop.height - 1

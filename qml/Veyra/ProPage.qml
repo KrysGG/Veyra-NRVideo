@@ -1374,6 +1374,17 @@ VPage {
                             onToggled: on => veyra.srEnabled = on
 
                             VRow {
+                                label: qsTr("Super resolution GPU")
+                                hint: qsTr("Capture, NR, super resolution and presentation run on this GPU. Reopen the source to apply")
+                                VSelect {
+                                    objectName: "list-sr-gpu"
+                                    implicitWidth: 210
+                                    options: [{ id: "", label: qsTr("Auto (fastest GPU)") }].concat(veyra.gpuMonitorChoices.slice(1))
+                                    value: (options.find(o => o.id === (veyra.preferences.computeOnMonitorGpu === true ? (veyra.preferences.monitorGpu || "") : "")) || options[0]).label
+                                    onPicked: id => { if (id) veyra.setPreference("monitorGpu", id); veyra.setPreference("computeOnMonitorGpu", id !== "") }
+                                }
+                            }
+                            VRow {
                                 label: qsTr("超分算法")
                                 VSelect {
                                     objectName: "list-sr-backend"
@@ -1776,6 +1787,18 @@ VPage {
                                     objectName: "list-dlssg-lite"
                                     checked: veyra.dlssgLite
                                     onToggled: checked => veyra.dlssgLite = checked
+                                }
+                            }
+                            VRow {
+                                label: qsTr("Frame generation GPU")
+                                visible: veyra.fgBackendName === "vfg"
+                                hint: veyra.fgGpuStatus
+                                VSelect {
+                                    objectName: "list-fg-gpu"
+                                    implicitWidth: 210
+                                    options: [{ id: "", label: qsTr("Same as SR GPU") }].concat(veyra.gpuMonitorChoices.slice(1))
+                                    value: (options.find(o => o.id === (veyra.preferences.fgGpu || "")) || options[0]).label
+                                    onPicked: id => veyra.setPreference("fgGpu", id)
                                 }
                             }
                             VRow {

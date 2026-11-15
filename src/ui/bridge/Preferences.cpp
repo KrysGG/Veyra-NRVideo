@@ -231,6 +231,10 @@ bool QmlPlayerBridge::setPreference(const QString& key, const QVariant& value) {
         bool ok = false; const double v = value.toDouble(&ok);
         if (!ok || !(qFuzzyCompare(v, 1.0) || qFuzzyCompare(v, 0.1) || qFuzzyCompare(v, 0.01))) return false;
         stored = v;
+    } else if (key == QLatin1String("theme")) {
+        const QString v = value.toString();
+        if (v != QLatin1String("default") && v != QLatin1String("vice")) return false;
+        stored = v;
     } else if (key == QLatin1String("accent")) {
         const QString v = value.toString();
         if (v != QLatin1String("orange") && v != QLatin1String("white")) return false;
@@ -279,7 +283,7 @@ bool QmlPlayerBridge::setPreference(const QString& key, const QVariant& value) {
         static const QStringList languages{"auto", "zh-CN", "zh-TW", "en", "ja"};
         if (!languages.contains(v)) return false;
         stored = v;
-    } else if (key == QLatin1String("monitorGpu")) {
+    } else if (key == QLatin1String("monitorGpu") || key == QLatin1String("fgGpu")) {
         const QString v = value.toString();
         if (!v.isEmpty() && std::none_of(impl_->gpuAdapters.begin(), impl_->gpuAdapters.end(), [&](const auto& a) { return a.id == v; })) return false;
         stored = v;
@@ -320,9 +324,9 @@ void QmlPlayerBridge::applyPreference(const QString& key) {
     }
     if(key==QLatin1String("gpuPriority")){
         const auto value=impl_->prefString("gpuPriority");
-        // Unset means High (user default, 2026-11-13); saved choices stay explicit.
+        // Unset means the default, 实时 (field request 2026-10-05).
         gfx::requestGpuPriority(value==QLatin1String("normal")?gfx::GpuPriority::Normal:
-                                value==QLatin1String("realtime")?gfx::GpuPriority::Realtime:gfx::GpuPriority::High);
+                                value==QLatin1String("high")?gfx::GpuPriority::High:gfx::GpuPriority::Realtime);
     }
     if(key==QLatin1String("overlayCompat"))updateLiveCompanionCompat();
     if(key==QLatin1String("fullscreenMemoryProtection")){impl_->engine.setFullscreenMemoryProtection(impl_->prefBool("fullscreenMemoryProtection",false));emit snapshotChanged();}
@@ -350,6 +354,10 @@ void QmlPlayerBridge::applyPreference(const QString& key) {
             }
             impl_->exportQueue.refresh();
         }
+    }
+    else if (key == QLatin1String("fgGpu")) {
+        impl_->applyFgGpu();
+        if (impl_->snapshot.running) emit notice(tr("Frame generation GPU changed; reopen the video or capture to apply"), false);
     }
     else if (key == QLatin1String("monitorGpu") || key == QLatin1String("computeOnMonitorGpu")) {
         if (key == QLatin1String("monitorGpu")) { impl_->resolveGpuMonitor(); impl_->gpuUtil = -1.0; emit perfChanged(); }

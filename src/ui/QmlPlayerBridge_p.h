@@ -538,6 +538,11 @@ struct QmlPlayerBridge::Impl {
     struct GpuAdapter { QString id, name; uint32_t luidHigh = 0, luidLow = 0; };
     std::vector<GpuAdapter> gpuAdapters;
     std::atomic<uint64_t> gpuMonitorLuid{0};
+    // Fork: busiest-engine % per adapter LUID, for the per-GPU orbs.
+    std::mutex gpuUtilsMutex;
+    std::map<uint64_t, double> gpuUtils;
+    double gpuSumPublished = -1.0;
+    QString fgStatusPublished;
     QString gpuMonitorName;
     // LUIDs that have "GPU Engine" counter instances. DXGI can list one physical GPU
     // twice (a virtual display driver such as GameViewer's exposes a second adapter
@@ -605,6 +610,15 @@ struct QmlPlayerBridge::Impl {
         gfx::setPreferredAdapterLuid(computeLuid);
         veyra::log::info("perf", std::format("compute gpu follow={} wanted={} using={}", follow, wanted.isEmpty() ? "auto" : wanted.toStdString(),
             follow ? chosen->name.toStdString() : "default order (highest-performance adapter)"));
+    }
+    // Fork: 设置 -> "Frame generation GPU". Empty = same GPU as the compute work.
+    void applyFgGpu() {
+        const QString wanted = prefString("fgGpu");
+        const GpuAdapter* chosen = nullptr;
+        for (const auto& a : gpuAdapters) if (!wanted.isEmpty() && a.id == wanted) chosen = &a;
+        gfx::setFrameGenerationAdapterLuid(chosen ? (uint64_t(chosen->luidHigh) << 32 | chosen->luidLow) : 0);
+        veyra::log::info("perf", std::format("frame generation gpu wanted={} using={}", wanted.isEmpty() ? "same as compute" : wanted.toStdString(),
+            chosen ? chosen->name.toStdString() : "same as compute"));
     }
     void resolveGpuMonitor() {
         const QString wanted = prefString("monitorGpu");
