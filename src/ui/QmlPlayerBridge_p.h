@@ -710,7 +710,8 @@ struct QmlPlayerBridge::Impl {
     // mode (list indices move when devices come and go). Switching to another
     // device and back used to leave the card with no audio (field report 2026-11-16).
     void rememberCaptureAudio() {
-        if(captureDevice.empty()||captureAudioMissing)return;
+        // Nothing listed yet means no informed choice: keep what was remembered.
+        if(captureDevice.empty()||captureAudioMissing||captureAudio.empty())return;
         const auto* audio=captureAudioChoice>=0&&size_t(captureAudioChoice)<captureAudio.size()?&captureAudio[size_t(captureAudioChoice)]:nullptr;
         const QVariantMap entry{{QStringLiteral("path"),QString::fromStdWString(audio?audio->path:std::wstring{})},
                                 {QStringLiteral("mode"),audio?audio->audioMode():captureAudioChoice}};
