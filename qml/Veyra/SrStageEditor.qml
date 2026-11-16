@@ -15,6 +15,7 @@ ColumnLayout {
     readonly property var targets: [{id:"1",label:"2K"},{id:"2",label:"4K"},{id:"4",label:"5K"},{id:"5",label:"6K"},{id:"6",label:"7K"},{id:"3",label:"8K"}]
     VRow {
         label: qsTr("目标尺寸")
+        info: qsTr("The size super resolution produces. Match your monitor: 2K for a 1440p screen, 4K for a 2160p screen. Going above your screen size only costs GPU time.")
         hint: qsTr("基础超分的尺寸；设置缩回时为中间尺寸。")
         VSeg { objectName: editor.namePrefix+"-sr-target"; options: editor.targets; current: String(veyra.srTargetIndex); onPicked: id => veyra.srTargetIndex=Number(id) }
     }
@@ -25,6 +26,7 @@ ColumnLayout {
     }
     VRow {
         label: qsTr("档位")
+        info: qsTr("Higher tiers are sharper but slower. Low or Medium is usually invisible to tell apart on a moving game picture; raise it only if the SR bar has room.")
         hint: qsTr("越高越清晰、越耗时；流媒体只有中和超高两档。")
         enabled: editor.supported; opacity: enabled ? 1 : 0.4
         VSeg {
@@ -51,6 +53,7 @@ ColumnLayout {
     }
     VRow {
         label: qsTr("双重超分")
+        info: qsTr("Runs super resolution twice: upscale, shrink, upscale again. It can look cleaner than one pass, but it costs two SR passes. If you are short on frame budget, turn this off first.")
         hint: qsTr("先完成基础超分，再将结果降低分辨率并执行第二次超分；两次执行独立，会增加耗时和显存。")
         enabled: editor.srAvailable
         opacity: enabled ? 1 : 0.4

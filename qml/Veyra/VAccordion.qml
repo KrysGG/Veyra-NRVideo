@@ -24,6 +24,8 @@ Rectangle {
     property bool open: false
     // [{ label, count, open }] — nested groups, as the design draws them.
     property var groups: []
+    // Fork: what this feature is for and how to troubleshoot it, behind a round "i".
+    property string info: ""
     signal toggled(bool on)
     signal headerClicked()
     // A brief accent pulse on the border: "here it is" after 处理顺序 locates a card.
@@ -140,15 +142,32 @@ Rectangle {
                 ColumnLayout {
                     Layout.fillWidth: true
                     spacing: 2
-                    Text {
+                    // Fork: the round "i" sits right after the title.
+                    RowLayout {
                         Layout.fillWidth: true
-                        text: acc.title
-                        color: acc.bypassed ? Theme.t3 : Theme.t1
-                        font.strikeout: acc.bypassed
-                        font.family: Theme.fontUi
-                        font.pixelSize: 13
-                        font.weight: Font.DemiBold; font.variableAxes: Theme.axesDemiBold
-                        elide: Text.ElideRight
+                        spacing: 6
+                        Text {
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            Layout.maximumWidth: headerInfo.visible ? Math.ceil(implicitWidth) + 1 : Number.POSITIVE_INFINITY
+                            text: acc.title
+                            color: acc.bypassed ? Theme.t3 : Theme.t1
+                            font.strikeout: acc.bypassed
+                            font.family: Theme.fontUi
+                            font.pixelSize: 13
+                            font.weight: Font.DemiBold; font.variableAxes: Theme.axesDemiBold
+                            elide: Text.ElideRight
+                        }
+                        VInfo {
+                            id: headerInfo
+                            objectName: acc.objectName.length > 0 ? acc.objectName + "-info" : "acc-info"
+                            Layout.alignment: Qt.AlignVCenter
+                            host: acc
+                            offsetY: acc.headerHeight
+                            title: acc.title
+                            text: acc.info
+                        }
+                        Item { Layout.fillWidth: true; visible: headerInfo.visible }
                     }
                     Text {
                         Layout.fillWidth: true
@@ -187,7 +206,7 @@ Rectangle {
 
             HoverHandler { cursorShape: Qt.PointingHandCursor }
             TapHandler { onTapped: point => {
-                for (const tools of [leadingTools, headerTools]) {
+                for (const tools of [leadingTools, headerTools, headerInfo]) {
                     const p = tools.mapFromItem(parent, point.position.x, point.position.y)
                     if (tools.visible && p.x >= 0 && p.x <= tools.width
                             && p.y >= 0 && p.y <= tools.height) return

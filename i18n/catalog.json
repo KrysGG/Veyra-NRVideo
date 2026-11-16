@@ -603,6 +603,13 @@
    "ja": "1 分"
   },
   {
+   "zh": "1. 用上面的按钮下载同一个 zip。<br>2. 在文件管理器里右键点击 zip，选择<b>解压到此处</b>，打开 <b>lib/Windows_x86_64/rel</b>。<br>3. 把 nvngx_dlss.dll 和 nvngx_dlssg.dll 复制到 Veyra 文件夹里的 <b>%1</b> 文件夹。<br>4. DLSS 需要 NVIDIA 显卡和 NVIDIA 专有驱动；用 Proton 时还需要设置环境变量 <b>PROTON_ENABLE_NVAPI=1</b>。",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "1. 用上面的按鈕下載同一個 zip。<br>2. 在檔案管理器裡右鍵點擊 zip，選擇<b>解壓縮到此處</b>，開啟 <b>lib/Windows_x86_64/rel</b>。<br>3. 把 nvngx_dlss.dll 和 nvngx_dlssg.dll 複製到 Veyra 資料夾裡的 <b>%1</b> 資料夾。<br>4. DLSS 需要 NVIDIA 顯示卡和 NVIDIA 專有驅動；用 Proton 時還需要設定環境變數 <b>PROTON_ENABLE_NVAPI=1</b>。",
+   "en": "1. Download the same zip with the button above.<br>2. In your file manager, right-click the zip, choose <b>Extract Here</b>, and open <b>lib/Windows_x86_64/rel</b>.<br>3. Copy nvngx_dlss.dll and nvngx_dlssg.dll into the <b>%1</b> folder inside your Veyra folder.<br>4. DLSS needs an NVIDIA GPU with NVIDIA's proprietary driver. With Proton, also set the environment variable <b>PROTON_ENABLE_NVAPI=1</b>.",
+   "ja": "1. 上のボタンで同じ zip をダウンロードします。<br>2. ファイルマネージャーで zip を右クリックし、<b>ここに展開</b>を選んで <b>lib/Windows_x86_64/rel</b> を開きます。<br>3. nvngx_dlss.dll と nvngx_dlssg.dll を Veyra フォルダー内の <b>%1</b> フォルダーへコピーします。<br>4. DLSS には NVIDIA GPU と NVIDIA のプロプライエタリドライバーが必要です。Proton では環境変数 <b>PROTON_ENABLE_NVAPI=1</b> も設定してください。"
+  },
+  {
    "zh": "10 分钟",
    "src": "qml/SettingsPage.qml",
    "zh-TW": "10 分鐘",
@@ -643,13 +650,6 @@
    "zh-TW": "2 項",
    "en": "2 items",
    "ja": "2 項目"
-  },
-  {
-   "zh": "2. 回到 Veyra，在“音频监听”选“Veyra 虚拟扬声器”，再连接采集。音频输出选真实耳机或音箱，即可使用音画同步。\n\n可选改名：在 Windows 声音的“播放”页打开 CABLE Input 的属性，在“常规”里改成“Veyra 采集音频”。",
-   "src": "qml/CaptureSourceDialog.qml",
-   "zh-TW": "2. 回到 Veyra，在“音訊監聽”選“Veyra 虛擬揚聲器”，再連接擷取。音訊輸出選真實耳機或音箱，即可使用音畫同步。\n\n可選改名：在 Windows 聲音的“播放”頁開啟 CABLE Input 的屬性，在“常規”裡改成“Veyra 擷取音訊”。",
-   "en": "2. In Veyra, select Veyra Virtual Speaker under Audio monitoring, then connect the capture card. Select your physical headphones or speakers as the output to use audio/video sync.\n\nOptional rename: On the Playback tab in Windows Sound, open CABLE Input properties. On General, rename it to Veyra Capture Audio.",
-   "ja": "2. Veyra の「音声モニター」で「Veyra 仮想スピーカー」を選んでから接続します。出力先に実際のヘッドホンまたはスピーカーを選ぶと、映像と音声の同期を利用できます。\n\n名前を変更する場合は、Windows の「サウンド」の「再生」で CABLE Input のプロパティを開き、「全般」で Veyra キャプチャ音声に変更します。"
   },
   {
    "zh": "203 = 中性；调高整体变亮，峰值不变",
@@ -783,6 +783,13 @@
    "zh-TW": "ANR 畫格生成無法啟用，已關閉補幀；請檢查執行元件、驅動程式與處理尺寸（至少 640×360），詳細原因請見日誌",
    "en": "ANR frame generation could not start and has been turned off. Check its runtime, driver and processing size (at least 640×360); see the log for details.",
    "ja": "ANR フレーム生成を開始できないためオフにしました。ランタイム、ドライバー、処理解像度（640×360以上）を確認してください。詳細はログにあります。"
+  },
+  {
+   "zh": "ANR 帧生成（实验）",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "ANR 幀生成（實驗）",
+   "en": "ANR Frame Generation (experimental)",
+   "ja": "ANR フレーム生成（実験的）"
   },
   {
    "zh": "AV1 需要主机显卡能编码、本机显卡能解码",
@@ -1051,6 +1058,13 @@
    "ja": "DLAA：NVIDIA DLSS をネイティブ解像度で実行し、オプティカルフローに沿ってフレーム間でエッジを再構成します。DLSS SR のモデルを使い、他の方式より負荷が高くなります。キャプチャ映像にはゲームのようなジッターサンプルがないため、ゲーム内 DLAA より効果は弱くなります"
   },
   {
+   "zh": "DLSS 已就绪",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "DLSS 已就緒",
+   "en": "DLSS is ready",
+   "ja": "DLSS の準備完了"
+  },
+  {
    "zh": "DLSS 帧生成",
    "src": "src/ui/bridge/FrameGeneration.cpp",
    "zh-TW": "DLSS 幀生成",
@@ -1070,6 +1084,20 @@
    "zh-TW": "DLSS 模型",
    "en": "DLSS model",
    "ja": "DLSS モデル"
+  },
+  {
+   "zh": "DLSS 超分辨率",
+   "src": "src/ui/bridge/Dependencies.cpp",
+   "zh-TW": "DLSS 超解析度",
+   "en": "DLSS Super Resolution",
+   "ja": "DLSS 超解像"
+  },
+  {
+   "zh": "DLSS 超分辨率和 DLSS 帧生成需要 NVIDIA 的两个免费文件。Veyra 不能附带它们，但安装只需几分钟：下载、解压、把两个文件拖进来。不用重启。",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "DLSS 超解析度和 DLSS 幀生成需要 NVIDIA 的兩個免費檔案。Veyra 不能附帶它們，但安裝只需幾分鐘：下載、解壓縮、把兩個檔案拖進來。不用重新啟動。",
+   "en": "DLSS Super Resolution and DLSS Frame Generation need two free files from NVIDIA. Veyra can't include them, but setup only takes a few minutes: download, unzip, and drag two files in. No restart needed.",
+   "ja": "DLSS 超解像と DLSS フレーム生成には NVIDIA の無料ファイルが 2 つ必要です。Veyra には同梱できませんが、数分で済みます：ダウンロード、展開、2 つのファイルをドラッグするだけ。再起動は不要です。"
   },
   {
    "zh": "DXGI 为显示器兼容方式，无鼠标指针；捕获显示器时不显示黄色边框，Veyra 自己也不会出现在截图和录屏里",
@@ -1135,18 +1163,53 @@
    "ja": "FSR 3.1 ベンダー共通フレーム生成 · 最大 2X"
   },
   {
-   "zh": "FSR 4 ML · RX 9000 · 实验",
-   "src": "src/ui/bridge/FrameGeneration.cpp",
-   "zh-TW": "FSR 4 ML · RX 9000 · 實驗",
-   "en": "FSR 4 ML · RX 9000 · experimental",
-   "ja": "FSR 4 ML · RX 9000 · 実験的"
+   "zh": "FSR 4 ML 提供方不可用（需要支持的 RX 9000 和驱动），已改用 FSR 3.1；原因见日志",
+   "src": "src/engine/EngineController.cpp",
+   "zh-TW": "FSR 4 ML 提供方不可用（需要支援的 RX 9000 和驅動），已改用 FSR 3.1；原因見日誌",
+   "en": "FSR 4 ML provider unavailable (needs a supported RX 9000 and driver); switched to FSR 3.1. See the log",
+   "ja": "FSR 4 ML が使用できません（対応する RX 9000 とドライバーが必要）。FSR 3.1 に切り替えました。理由はログを参照してください"
   },
   {
-   "zh": "FSR 4 ML 提供方不可用（需要支持的 RX 9000 和驱动），已关闭补帧；原因见日志",
+   "zh": "AMD FRC 未能启用（需要 AMD 显卡和驱动自带的 AMF 运行库），已关闭补帧；原因见日志",
    "src": "src/engine/EngineController.cpp",
-   "zh-TW": "FSR 4 ML 提供方不可用（需要支援的 RX 9000 和驅動），已關閉補幀；原因見日誌",
-   "en": "FSR 4 ML provider unavailable (needs a supported RX 9000 and driver); frame generation turned off. See the log",
-   "ja": "FSR 4 ML が使用できません（対応する RX 9000 とドライバーが必要）。フレーム生成をオフにしました。理由はログを参照してください"
+   "zh-TW": "AMD FRC 未能啟用（需要 AMD 顯示卡和驅動內建的 AMF 執行庫），已關閉補幀；原因見日誌",
+   "en": "AMD FRC could not start (needs an AMD GPU and the AMF runtime from its driver); frame generation turned off. See the log",
+   "ja": "AMD FRC を開始できませんでした（AMD GPU とドライバー付属の AMF ランタイムが必要）。フレーム生成をオフにしました。理由はログを参照してください"
+  },
+  {
+   "zh": "AMD FRC 未能启用（需要 AMD 显卡和驱动自带的 AMF 运行库），已恢复上一套参数",
+   "src": "src/engine/EngineController.cpp",
+   "zh-TW": "AMD FRC 未能啟用（需要 AMD 顯示卡和驅動內建的 AMF 執行庫），已恢復上一套參數",
+   "en": "AMD FRC could not start (needs an AMD GPU and the AMF runtime from its driver); the previous settings were restored",
+   "ja": "AMD FRC を開始できませんでした（AMD GPU とドライバー付属の AMF ランタイムが必要）。前の設定に戻しました"
+  },
+  {
+   "zh": "AMD FRC · 视频补帧 · 2X",
+   "src": "src/ui/bridge/FrameGeneration.cpp",
+   "zh-TW": "AMD FRC · 影片補幀 · 2X",
+   "en": "AMD FRC · video frame interpolation · 2X",
+   "ja": "AMD FRC · 映像フレーム補間 · 2X"
+  },
+  {
+   "zh": "AMD 驱动自带的视频补帧（AMF FRC），只用前后两帧画面估算运动，固定 2X",
+   "src": "src/ui/bridge/FrameGeneration.cpp",
+   "zh-TW": "AMD 驅動內建的影片補幀（AMF FRC），只用前後兩格畫面估算動態，固定 2X",
+   "en": "Video frame interpolation built into the AMD driver (AMF FRC); it estimates motion from the two pictures only, fixed at 2X",
+   "ja": "AMD ドライバー内蔵の映像フレーム補間（AMF FRC）。前後 2 枚の映像だけから動きを推定し、2X 固定です"
+  },
+  {
+   "zh": "需要 AMD 显卡（驱动自带 AMF 运行库）",
+   "src": "src/ui/bridge/Hardware.cpp",
+   "zh-TW": "需要 AMD 顯示卡（驅動內建 AMF 執行庫）",
+   "en": "Requires an AMD GPU (AMF runtime from the AMD driver)",
+   "ja": "AMD GPU が必要です（ドライバー付属の AMF ランタイム）"
+  },
+  {
+   "zh": "FSR 4 ML 运行失败，已改用 FSR 3.1；错误码见日志",
+   "src": "src/engine/EngineController.cpp",
+   "zh-TW": "FSR 4 ML 執行失敗，已改用 FSR 3.1；錯誤碼見日誌",
+   "en": "FSR 4 ML failed while running; switched to FSR 3.1. Error codes are in the log",
+   "ja": "FSR 4 ML の実行に失敗したため、FSR 3.1 に切り替えました。エラーコードはログを参照してください"
   },
   {
    "zh": "FSR 4 ML 未能启用（需要支持的 RX 9000 和驱动），已恢复上一套参数",
@@ -1163,11 +1226,11 @@
    "ja": "FSR 4 ML のフレーム生成は AMD RX 9000 のみ対応です。この GPU では使えないため、現在のフレーム生成方式のままにしました"
   },
   {
-   "zh": "FSR 4 ML 需要支持的 RX 9000 和驱动；实卡待验",
+   "zh": "FSR 4 ML 需要支持的 RX 9000 和驱动，不可用时自动改用 FSR 3.1；尚未在 RX 9000 实卡上验证",
    "src": "src/ui/bridge/FrameGeneration.cpp",
-   "zh-TW": "FSR 4 ML 需要支援的 RX 9000 和驅動；實卡待驗",
-   "en": "FSR 4 ML needs a supported RX 9000 and driver; not yet tested on real cards",
-   "ja": "FSR 4 ML には対応する RX 9000 とドライバーが必要です。実機での検証は未完了です"
+   "zh-TW": "FSR 4 ML 需要支援的 RX 9000 和驅動，無法使用時自動改用 FSR 3.1；尚未在 RX 9000 實卡上驗證",
+   "en": "FSR 4 ML needs a supported RX 9000 and driver and switches to FSR 3.1 when unavailable; not yet verified on an actual RX 9000",
+   "ja": "FSR 4 ML には対応する RX 9000 とドライバーが必要で、使用できないときは FSR 3.1 に自動で切り替えます。RX 9000 の実機ではまだ検証していません"
   },
   {
    "zh": "FXAA：最快，整体略柔",
@@ -1478,6 +1541,13 @@
    "ja": "Limited = 16–235、Full = 0–255。映像が白っぽいなら「Limited」、暗部が黒つぶれ・明部が白飛びするなら「Full」"
   },
   {
+   "zh": "Linux（未测试）",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "Linux（未測試）",
+   "en": "Linux (not tested)",
+   "ja": "Linux（未テスト）"
+  },
+  {
    "zh": "MKV 不支持直接保留此编码，请排除此轨",
    "src": "src/engine/ExportStreams.cpp",
    "zh-TW": "MKV 不支援直接保留此編碼，請排除此軌",
@@ -1730,6 +1800,13 @@
    "ja": "NVIDIA の新しいパフォーマンスモード（ベータ）：フレーム生成の GPU 負荷が減り高倍率でも安定、画質はやや落ちる場合あり。書き出しは標準モードのまま"
   },
   {
+   "zh": "NVIDIA 组件",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "NVIDIA 元件",
+   "en": "NVIDIA components",
+   "ja": "NVIDIA コンポーネント"
+  },
+  {
    "zh": "NVIDIA 驱动级 AI 插帧，与软件内补帧二选一",
    "src": "qml/SettingsPage.qml",
    "zh-TW": "NVIDIA 驅動級 AI 插幀，與軟體內補幀二選一",
@@ -1854,13 +1931,6 @@
    "zh-TW": "PS5 主機",
    "en": "PS5 console",
    "ja": "PS5 本体"
-  },
-  {
-   "zh": "PS5 仍会发一路 720p 30fps、约 5 Mbps 的保活画面，本机收到即丢弃；PS5 同一时间只允许一个远程游玩连接。再串流时记得打开上面的「音频监听」。",
-   "src": "qml/CaptureSourceDialog.qml",
-   "zh-TW": "PS5 仍會發一路 720p 30fps、約 5 Mbps 的保活畫面，本機收到即丟棄；PS5 同一時間只允許一個遠程遊玩連線。再串流時記得打開上面的「音訊監聽」。",
-   "en": "The PS5 still sends a 720p 30 fps keepalive picture of about 5 Mbps, which this PC drops on arrival. A PS5 allows one Remote Play connection at a time. When re-streaming, turn on Audio monitoring above.",
-   "ja": "PS5 は 720p 30fps・約 5 Mbps の維持用映像を送り続けますが、この PC は受け取ってすぐ破棄します。PS5 のリモートプレイ接続は同時に 1 つだけです。再ストリーミングするときは上の「音声モニター」をオンにしてください。"
   },
   {
    "zh": "PS5 仍被串流会话占用，请结束其他串流或稍后重试；无需重新配对。",
@@ -2122,6 +2192,13 @@
    "ja": "RTX 超解像 · 高ビットレート"
   },
   {
+   "zh": "RTX 超分里的 DLSS 选项需要它",
+   "src": "src/ui/bridge/Dependencies.cpp",
+   "zh-TW": "RTX 超解析的 DLSS 選項需要它",
+   "en": "Needed by the DLSS option in RTX super resolution",
+   "ja": "RTX 超解像の DLSS オプションに必要"
+  },
+  {
    "zh": "RX 7000 / 9000 · AMD NR（实验）",
    "src": "qml/NrLayerEditor.qml",
    "zh-TW": "RX 7000 / 9000 · AMD NR（實驗）",
@@ -2288,6 +2365,13 @@
    "zh-TW": "Veyra 開源免費，也需要你的支持",
    "en": "Veyra is free and open source, and it runs on your support",
    "ja": "Veyra は無料のオープンソース。皆さんの支援が支えです"
+  },
+  {
+   "zh": "Veyra 是 Windows 程序，在 Linux 上只能通过 Wine 或 Proton 运行，这种用法<b>没有测试过</b>。文件和步骤相同：",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "Veyra 是 Windows 程式，在 Linux 上只能透過 Wine 或 Proton 執行，這種用法<b>沒有測試過</b>。檔案和步驟相同：",
+   "en": "Veyra is a Windows app. On Linux it can only run through Wine or Proton, and that has <b>not been tested</b>. The files and steps are the same:",
+   "ja": "Veyra は Windows アプリです。Linux では Wine または Proton 経由でしか動かず、<b>テストされていません</b>。ファイルと手順は同じです："
   },
   {
    "zh": "Veyra 本地诊断（复制前脱敏预览；不会上传）\n",
@@ -2745,6 +2829,13 @@
    "ja": "前の項目"
   },
   {
+   "zh": "上方状态变成“已就绪”即完成。如果文件已放好仍显示缺少，确认文件名没有被改成“nvngx_dlss (1).dll”之类，且没有放进子文件夹。",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "上方狀態變成「已就緒」即完成。如果檔案已放好仍顯示缺少，確認檔名沒有被改成「nvngx_dlss (1).dll」之類，且沒有放進子資料夾。",
+   "en": "You're done when the status above says “Ready”. If a file is in place but still shows as missing, check that it wasn't renamed (for example “nvngx_dlss (1).dll”) and isn't inside a subfolder.",
+   "ja": "上の状態が「準備完了」になれば完了です。ファイルを入れたのに不足と表示される場合は、名前が「nvngx_dlss (1).dll」などに変わっていないか、サブフォルダーに入っていないか確認してください。"
+  },
+  {
    "zh": "上次",
    "src": "qml/SettingsPage.qml",
    "zh-TW": "上次",
@@ -2785,13 +2876,6 @@
    "zh-TW": "上次的音訊輸入未連接",
    "en": "Previous audio input is disconnected",
    "ja": "前回の音声入力が接続されていません"
-  },
-  {
-   "zh": "上次的音频输入未连接，请插回设备或重新选择音频监听",
-   "src": "src/ui/bridge/Capture.cpp",
-   "zh-TW": "上次的音訊輸入未連接，請重新插入裝置或選擇音訊監聽",
-   "en": "The previous audio input is disconnected. Reconnect it or select an audio input",
-   "ja": "前回の音声入力が接続されていません。再接続するか音声入力を選び直してください"
   },
   {
    "zh": "上次采集时显卡设备丢失",
@@ -2864,11 +2948,32 @@
    "ja": "下へ移動"
   },
   {
+   "zh": "下载",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "下載",
+   "en": "Downloads",
+   "ja": "ダウンロード"
+  },
+  {
    "zh": "下载 %1 MB/s",
    "src": "src/ui/bridge/Playback.cpp",
    "zh-TW": "下載 %1 MB/s",
    "en": "Download %1 MB/s",
    "ja": "ダウンロード %1 MB/s"
+  },
+  {
+   "zh": "下载 ANR 帧生成组件",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "下載 ANR 幀生成元件",
+   "en": "Download the ANR frame generation files",
+   "ja": "ANR フレーム生成ファイルをダウンロード"
+  },
+  {
+   "zh": "下载 NVIDIA DLSS",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "下載 NVIDIA DLSS",
+   "en": "Download NVIDIA DLSS",
+   "ja": "NVIDIA DLSS をダウンロード"
   },
   {
    "zh": "下载 —",
@@ -2890,6 +2995,13 @@
    "zh-TW": "不保留",
    "en": "Don't keep",
    "ja": "保持しない"
+  },
+  {
+   "zh": "不再提示",
+   "src": "qml/DependencyBanner.qml",
+   "zh-TW": "不再提示",
+   "en": "Don't show again",
+   "ja": "今後表示しない"
   },
   {
    "zh": "不可用",
@@ -2946,13 +3058,6 @@
    "zh-TW": "不是有效的 .vpcolor 檔案",
    "en": "Not a valid .vpcolor file",
    "ja": "有効な .vpcolor ファイルではありません"
-  },
-  {
-   "zh": "不监听音频",
-   "src": "qml/CaptureSourceDialog.qml",
-   "zh-TW": "不監聽音訊",
-   "en": "Don't monitor audio",
-   "ja": "音声をモニターしない"
   },
   {
    "zh": "不确定就选「自动」。采集 HDR：采集格式选 P010，这里选「HDR · PQ」（游戏机、显卡的 HDR10 都是 PQ）。「HDR · HLG」用于广播信号。「SDR · 709」是普通画面。变更需重连",
@@ -3030,6 +3135,13 @@
    "zh-TW": "丟包 %1",
    "en": "Lost %1",
    "ja": "パケット損失 %1"
+  },
+  {
+   "zh": "两个文件都找到了，超分和补帧里的 DLSS 选项现在可以使用。下载的 zip 和解压出的文件夹现在可以删除。",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "兩個檔案都找到了，超解析和補幀裡的 DLSS 選項現在可以使用。下載的 zip 和解壓縮出的資料夾現在可以刪除。",
+   "en": "Both files were found, so the DLSS options in super resolution and frame generation are ready. You can now delete the downloaded zip and the extracted folder.",
+   "ja": "両方のファイルが見つかりました。超解像とフレーム生成の DLSS オプションを使えます。ダウンロードした zip と展開したフォルダーは削除して構いません。"
   },
   {
    "zh": "两台电脑接在同一个局域网，这里会自动出现；也可以在下面手填它的 IP。首次使用需要配对。",
@@ -4222,6 +4334,13 @@
    "ja": "すべての肌色：顔検出を使わず、画面内の肌色の部分をすべて処理します"
   },
   {
+   "zh": "全部解压缩…",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "全部解壓縮…",
+   "en": "Extract All…",
+   "ja": "すべて展開…"
+  },
+  {
    "zh": "全部还原",
    "src": "qml/SettingsPage.qml",
    "zh-TW": "全部還原",
@@ -4293,6 +4412,13 @@
    "ja": "同じキャプチャーカードを使っている他のソフトを閉じてください"
   },
   {
+   "zh": "关闭启动音乐",
+   "src": "qml/Main.qml",
+   "zh-TW": "關閉啟動音樂",
+   "en": "Turn the startup music off",
+   "ja": "起動時の音楽をオフ"
+  },
+  {
    "zh": "关闭弹性与转场",
    "src": "qml/SettingsPage.qml",
    "zh-TW": "關閉彈性與轉場",
@@ -4340,6 +4466,13 @@
    "zh-TW": "關閉補償",
    "en": "No compensation",
    "ja": "補正なし"
+  },
+  {
+   "zh": "其他桌面",
+   "src": "src/ui/bridge/Capture.cpp",
+   "zh-TW": "其他桌面",
+   "en": "Other desktop",
+   "ja": "別のデスクトップ"
   },
   {
    "zh": "兼容",
@@ -5077,6 +5210,13 @@
    "ja": "単一ノードか、個数が上限に達しているためコピーできません"
   },
   {
+   "zh": "单击或按任意键跳过",
+   "src": "qml/Main.qml",
+   "zh-TW": "按一下或按任意鍵略過",
+   "en": "Click or press any key to skip",
+   "ja": "クリックまたは任意のキーでスキップ"
+  },
+  {
    "zh": "单击曲线加点并拖动 · 右键删点 · 最多 8 点",
    "src": "qml/ColourCurve.qml",
    "zh-TW": "單擊曲線加點並拖曳 · 右鍵刪點 · 最多 8 點",
@@ -5602,13 +5742,6 @@
    "ja": "開けるのはローカルファイルだけです"
   },
   {
-   "zh": "只连接明确选中的输入，默认不监听",
-   "src": "qml/CaptureSourceDialog.qml",
-   "zh-TW": "只連接明確選中的輸入，預設不監聽",
-   "en": "Connects only the input you select explicitly; no monitoring by default",
-   "ja": "明示的に選んだ入力だけを接続します。既定ではモニターしません"
-  },
-  {
    "zh": "可以保存",
    "src": "qml/SavePresetDialog.qml",
    "zh-TW": "可以儲存",
@@ -5663,6 +5796,13 @@
    "zh-TW": "可用",
    "en": "Available",
    "ja": "使用可"
+  },
+  {
+   "zh": "可选",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "可選",
+   "en": "Optional",
+   "ja": "任意"
   },
   {
    "zh": "可选 · 采集卡直采无声时使用",
@@ -5798,6 +5938,13 @@
    "ja": "起動とウィンドウ"
   },
   {
+   "zh": "启动动画",
+   "src": "qml/SettingsPage.qml",
+   "zh-TW": "啟動動畫",
+   "en": "Startup animation",
+   "ja": "起動アニメーション"
+  },
+  {
    "zh": "启动后自动继续上次内容",
    "src": "qml/SettingsPage.qml",
    "zh-TW": "啟動後自動繼續上次內容",
@@ -5831,6 +5978,13 @@
    "zh-TW": "啟動視窗大小",
    "en": "Window size at startup",
    "ja": "起動時のウィンドウサイズ"
+  },
+  {
+   "zh": "启动音乐",
+   "src": "qml/SettingsPage.qml",
+   "zh-TW": "啟動音樂",
+   "en": "Startup music",
+   "ja": "起動時の音楽"
   },
   {
    "zh": "启动默认",
@@ -6118,6 +6272,13 @@
    "zh-TW": "在 PSNTools 網頁取得 Account ID，再到 PS5 串流視窗填入並配對。",
    "en": "Get your Account ID on PSNTools, then enter it in the PS5 streaming window to pair.",
    "ja": "PSNTools で Account ID を取得し、PS5 ストリーミング画面に入力してペアリングします。"
+  },
+  {
+   "zh": "在下载文件夹里右键点击 addon.zip，选择<b>全部解压缩…</b>，再点<b>解压缩</b>。在新打开的文件夹里按 <b>Ctrl+A</b> 选中全部文件，拖进 anr 文件夹（点击下面的按钮打开它，没有的话会自动建好）。",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "在下載資料夾裡右鍵點擊 addon.zip，選擇<b>全部解壓縮…</b>，再點<b>解壓縮</b>。在新開啟的資料夾裡按 <b>Ctrl+A</b> 選取全部檔案，拖進 anr 資料夾（點擊下面的按鈕開啟它，沒有的話會自動建立）。",
+   "en": "In your Downloads folder, right-click addon.zip, choose <b>Extract All…</b>, then click <b>Extract</b>. In the folder that opens, press <b>Ctrl+A</b> to select every file and drag them into the anr folder (the button below opens it and creates it if needed).",
+   "ja": "ダウンロードフォルダーで addon.zip を右クリックし、<b>すべて展開…</b>を選んで<b>展開</b>をクリックします。開いたフォルダーで <b>Ctrl+A</b> を押してすべて選択し、anr フォルダーへドラッグします（下のボタンで開けます。なければ作成されます）。"
   },
   {
    "zh": "在主机上打开 Sunshine 网页（https://主机IP:47990），进入「PIN」页，输入下面的数字并提交：",
@@ -6916,6 +7077,13 @@
    "zh-TW": "安全",
    "en": "Within range",
    "ja": "範囲内"
+  },
+  {
+   "zh": "安装 DLSS（超分辨率 + 帧生成）",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "安裝 DLSS（超解析度 + 幀生成）",
+   "en": "Install DLSS (Super Resolution + Frame Generation)",
+   "ja": "DLSS のインストール（超解像 + フレーム生成）"
   },
   {
    "zh": "安装 Veyra 虚拟扬声器",
@@ -8010,6 +8178,13 @@
    "ja": "カラープリセットを書き出しました"
   },
   {
+   "zh": "已就绪",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "已就緒",
+   "en": "Ready",
+   "ja": "準備完了"
+  },
+  {
    "zh": "已开启",
    "src": "qml/ProDisplayPanel.qml",
    "zh-TW": "已開啟",
@@ -8990,13 +9165,6 @@
    "ja": "NVIDIA 以外のアダプターです：NR、NVIDIA 超解像、DLSS は無効です。XeSS のプレビューと AMD オプティカルフローは使えます"
   },
   {
-   "zh": "录入播放器正在播放的声音，不受音量和静音影响；采集卡需要开启音频监听",
-   "src": "qml/SettingsPage.qml",
-   "zh-TW": "錄入播放器正在播放的聲音，不受音量和靜音影響；擷取卡需要開啟音訊監聽",
-   "en": "Records player audio before volume and mute; capture cards need audio monitoring enabled",
-   "ja": "音量・ミュート適用前の音声を録音します。キャプチャーカードでは音声モニターを有効にしてください"
-  },
-  {
    "zh": "录制",
    "src": "qml/ProPage.qml",
    "zh-TW": "錄製",
@@ -9459,6 +9627,20 @@
    "ja": "開く"
   },
   {
+   "zh": "打开 ANR 发布页",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "開啟 ANR 發佈頁",
+   "en": "Open the ANR releases page",
+   "ja": "ANR のリリースページを開く"
+  },
+  {
+   "zh": "打开 ANR 项目的 GitHub 发布页，下载最新 FG 版本里的 <b>anr-fg-…-addon.zip</b>（不需要 full 或 kit 包）。",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "開啟 ANR 專案的 GitHub 發佈頁，下載最新 FG 版本裡的 <b>anr-fg-…-addon.zip</b>（不需要 full 或 kit 包）。",
+   "en": "Open the ANR project's GitHub releases page and download <b>anr-fg-…-addon.zip</b> from the latest FG release (not the full or kit packages).",
+   "ja": "ANR プロジェクトの GitHub リリースページを開き、最新 FG リリースの <b>anr-fg-…-addon.zip</b> をダウンロードします（full や kit は不要）。"
+  },
+  {
    "zh": "打开 GitHub Issues，诊断信息已自动复制",
    "src": "qml/SettingsPage.qml",
    "zh-TW": "開啟 GitHub Issues，診斷資訊已自動複製",
@@ -9466,11 +9648,46 @@
    "ja": "GitHub Issues を開きます。診断情報は自動でコピーされています"
   },
   {
+   "zh": "打开 NVIDIA 下载页",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "開啟 NVIDIA 下載頁",
+   "en": "Open NVIDIA download page",
+   "ja": "NVIDIA のダウンロードページを開く"
+  },
+  {
+   "zh": "打开 Veyra 的组件文件夹",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "開啟 Veyra 的元件資料夾",
+   "en": "Open Veyra's component folder",
+   "ja": "Veyra のコンポーネントフォルダーを開く"
+  },
+  {
    "zh": "打开 Windows 录制设置",
    "src": "qml/CaptureSourceDialog.qml",
    "zh-TW": "開啟 Windows 錄制設定",
    "en": "Open Windows recording settings",
    "ja": "Windows の録音設定を開く"
+  },
+  {
+   "zh": "打开启动音乐",
+   "src": "qml/Main.qml",
+   "zh-TW": "開啟啟動音樂",
+   "en": "Turn the startup music on",
+   "ja": "起動時の音楽をオン"
+  },
+  {
+   "zh": "打开 anr 文件夹",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "開啟 anr 資料夾",
+   "en": "Open the anr folder",
+   "ja": "anr フォルダーを開く"
+  },
+  {
+   "zh": "打开下载文件夹",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "開啟下載資料夾",
+   "en": "Open Downloads folder",
+   "ja": "ダウンロードフォルダーを開く"
   },
   {
    "zh": "打开字幕编码器",
@@ -9655,6 +9872,13 @@
    "ja": "肌の質感の一部を戻して、プラスチックのような見た目を防ぎます"
   },
   {
+   "zh": "把两个文件拖进 Veyra",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "把兩個檔案拖進 Veyra",
+   "en": "Drag the two files into Veyra",
+   "ja": "2 つのファイルを Veyra へドラッグ"
+  },
+  {
    "zh": "把当前设置另存为预设…",
    "src": "qml/NodePage.qml",
    "zh-TW": "把當前設定另存為預設…",
@@ -9765,6 +9989,13 @@
    "zh-TW": "拖曳調整參數面板寬度 · 雙擊還原",
    "en": "Drag to resize the settings panel · double-click to reset",
    "ja": "ドラッグで設定パネルの幅を変更 · ダブルクリックで元に戻す"
+  },
+  {
+   "zh": "拖放",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "拖放",
+   "en": "Drag",
+   "ja": "ドラッグ"
   },
   {
    "zh": "按下新按键…",
@@ -10181,6 +10412,13 @@
    "ja": "名前の変更に失敗しました：空、48 文字超、または既存のプリセットと同じ名前にはできません"
   },
   {
+   "zh": "放到这里",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "放到這裡",
+   "en": "Drop here",
+   "ja": "ここにドロップ"
+  },
+  {
    "zh": "效果",
    "src": "qml/ColourPanel.qml",
    "zh-TW": "效果",
@@ -10342,6 +10580,13 @@
    "ja": "サイズ：小さい順"
   },
   {
+   "zh": "文件夹位置：%1",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "資料夾位置：%1",
+   "en": "Folder: %1",
+   "ja": "フォルダー：%1"
+  },
+  {
    "zh": "文件已不存在",
    "src": "qml/HomePage.qml",
    "zh-TW": "檔案已不存在",
@@ -10354,6 +10599,13 @@
    "zh-TW": "檔案播放、字幕與截圖的預設行為。",
    "en": "Defaults for file playback, subtitles and screenshots.",
    "ja": "ファイル再生、字幕、スクリーンショットの既定動作。"
+  },
+  {
+   "zh": "文件放好后会自动识别；也可以手动立即检查",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "檔案放好後會自動識別；也可以手動立即檢查",
+   "en": "Files are detected automatically once in place; you can also check now",
+   "ja": "ファイルを入れると自動検出されます。今すぐ確認することもできます"
   },
   {
    "zh": "文件格式不支持、数据损坏或没有字幕内容",
@@ -10914,6 +11166,41 @@
    "zh-TW": "日本語",
    "en": "日本語",
    "ja": "日本語"
+  },
+  {
+   "zh": "日落",
+   "src": "qml/SettingsPage.qml",
+   "zh-TW": "日落",
+   "en": "Dusk",
+   "ja": "日没"
+  },
+  {
+   "zh": "日落天空的渐变强度，带抖动防色带",
+   "src": "qml/SettingsPage.qml",
+   "zh-TW": "日落天空的漸層強度，帶抖動以防色帶",
+   "en": "Strength of the sunset sky gradient, dithered against banding",
+   "ja": "夕焼け空のグラデーションの強さ（バンディング防止のディザ付き）"
+  },
+  {
+   "zh": "日落渐变",
+   "src": "qml/SettingsPage.qml",
+   "zh-TW": "日落漸層",
+   "en": "Sunset gradient",
+   "ja": "夕焼けグラデーション"
+  },
+  {
+   "zh": "日落配色下打开软件时播放，单击或按任意键可跳过",
+   "src": "qml/SettingsPage.qml",
+   "zh-TW": "日落配色下開啟軟體時播放，按一下或按任意鍵可略過",
+   "en": "Plays when Veyra starts in the Dusk color scheme; click or press any key to skip",
+   "ja": "日没の配色で起動したときに再生します。クリックまたは任意のキーでスキップできます"
+  },
+  {
+   "zh": "日落：深靛紫底、日落渐变强调色；经典：原来的黑灰配色",
+   "src": "qml/SettingsPage.qml",
+   "zh-TW": "日落：深靛紫底、日落漸層強調色；經典：原來的黑灰配色",
+   "en": "Dusk: deep indigo-violet with a sunset gradient accent; Classic: the original black and grey",
+   "ja": "日没：深い藍紫のベースと夕焼けグラデーションのアクセント。クラシック：従来の黒とグレー"
   },
   {
    "zh": "旧版格式列表",
@@ -11581,6 +11868,13 @@
    "ja": "キャプチャーデバイスが見つかりません。接続してから「更新」を押してください。"
   },
   {
+   "zh": "未找到音乐文件：程序目录下的 media/startup-music.mp3",
+   "src": "qml/SettingsPage.qml",
+   "zh-TW": "找不到音樂檔：程式目錄下的 media/startup-music.mp3",
+   "en": "Music file not found: media/startup-music.mp3 in the program folder",
+   "ja": "音楽ファイルが見つかりません：プログラムフォルダーの media/startup-music.mp3"
+  },
+  {
    "zh": "未指定",
    "src": "qml/NrLayerEditor.qml",
    "zh-TW": "未指定",
@@ -11924,11 +12218,25 @@
    "ja": "表示"
   },
   {
+   "zh": "查看指南",
+   "src": "qml/DependencyBanner.qml",
+   "zh-TW": "查看指南",
+   "en": "Open guide",
+   "ja": "ガイドを見る"
+  },
+  {
    "zh": "查看更新",
    "src": "qml/SettingsPage.qml",
    "zh-TW": "查看更新",
    "en": "View update",
    "ja": "更新を見る"
+  },
+  {
+   "zh": "查看步骤",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "查看步驟",
+   "en": "Show steps",
+   "ja": "手順を表示"
   },
   {
    "zh": "标准",
@@ -11964,6 +12272,20 @@
    "zh-TW": "格式與畫面",
    "en": "Format and picture",
    "ja": "フォーマットと映像"
+  },
+  {
+   "zh": "桌面 %1",
+   "src": "src/ui/bridge/Capture.cpp",
+   "zh-TW": "桌面 %1",
+   "en": "Desktop %1",
+   "ja": "デスクトップ %1"
+  },
+  {
+   "zh": "桌面 %1 · %2",
+   "src": "src/ui/bridge/Capture.cpp",
+   "zh-TW": "桌面 %1 · %2",
+   "en": "Desktop %1 · %2",
+   "ja": "デスクトップ %1 · %2"
   },
   {
    "zh": "档位",
@@ -12090,6 +12412,13 @@
    "zh-TW": "模型參數",
    "en": "Model parameters",
    "ja": "モデルのパラメーター"
+  },
+  {
+   "zh": "模型和其余文件…",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "模型和其餘檔案…",
+   "en": "Models and the other files…",
+   "ja": "モデルとその他のファイル…"
   },
   {
    "zh": "模型强度",
@@ -12603,6 +12932,13 @@
    "ja": "この機能は VB-Audio の VB-CABLE（ドネーションウェア）を使用します。同梱のパッケージからオフラインでインストールできます。初回は管理者の承認が必要です。指示に従って Windows を再起動してください。\n\n1. Windows の「録音」でキャプチャカードの音声プロパティを開き、「このデバイスを聴く」を有効にして再生先を CABLE Input にします。名前を変更した場合は新しい名前を選びます。"
   },
   {
+   "zh": "此显卡不可用",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "此顯示卡不可用",
+   "en": "Not available on this GPU",
+   "ja": "この GPU では使用不可"
+  },
+  {
    "zh": "此显卡最多支持 {}X 帧生成；请求未应用",
    "src": "src/engine/EngineController.cpp",
    "zh-TW": "此顯示卡最多支援 {}X 幀生成；請求未應用",
@@ -12650,6 +12986,13 @@
    "zh-TW": "此版本未包含美樂威 SDK 支援",
    "en": "This version does not include Magewell SDK support",
    "ja": "このバージョンには Magewell SDK のサポートが含まれていません"
+  },
+  {
+   "zh": "此电脑 › 下载",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "本機 › 下載",
+   "en": "This PC › Downloads",
+   "ja": "PC › ダウンロード"
   },
   {
    "zh": "此补帧提供方暂不支持独立输出限帧，已保留设置",
@@ -13079,6 +13422,13 @@
    "ja": "ゲームモードのキーボード監視を利用できません。マウス透過を解除しました。全画面を終了して再試行してください。"
   },
   {
+   "zh": "游戏模式需要窗口和 Veyra 在同一个虚拟桌面：请把窗口移到当前桌面，或关闭游戏模式后直接捕获",
+   "src": "src/ui/bridge/Capture.cpp",
+   "zh-TW": "遊戲模式需要視窗和 Veyra 在同一個虛擬桌面：請把視窗移到目前桌面，或關閉遊戲模式後直接擷取",
+   "en": "Game mode needs the window on the same virtual desktop as Veyra: move the window to the current desktop, or turn game mode off and capture it directly",
+   "ja": "ゲームモードではウィンドウと Veyra が同じ仮想デスクトップにある必要があります。ウィンドウを現在のデスクトップに移すか、ゲームモードをオフにしてそのままキャプチャーしてください"
+  },
+  {
    "zh": "游戏模式：调整画面",
    "src": "qml/SettingsPage.qml",
    "zh-TW": "遊戲模式：調整畫面",
@@ -13168,6 +13518,27 @@
    "zh-TW": "點一下滑塊後用 ← → 調整，每次的幅度；Esc 或單擊畫面交還方向鍵給快進快退",
    "en": "Click a slider and use ← → to adjust by this step; Esc or clicking the picture gives the arrow keys back to seeking",
    "ja": "スライダーをクリックすると ← → でこの刻みで調整します。Esc か映像のクリックで矢印キーをシーク操作に戻します"
+  },
+  {
+   "zh": "点击“打开 Veyra 的组件文件夹”。现在有两个窗口：<b>rel</b> 和 Veyra 的文件夹（按 <b>Win+←</b> 和 <b>Win+→</b> 可以把它们并排）。按住 <b>Ctrl</b> 点击 <b>nvngx_dlss.dll</b> 和 <b>nvngx_dlssg.dll</b> 选中两个文件，拖到 Veyra 的窗口里松开。如果 Windows 询问权限，点击<b>继续</b>。",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "點擊「開啟 Veyra 的元件資料夾」。現在有兩個視窗：<b>rel</b> 和 Veyra 的資料夾（按 <b>Win+←</b> 和 <b>Win+→</b> 可以把它們並排）。按住 <b>Ctrl</b> 點擊 <b>nvngx_dlss.dll</b> 和 <b>nvngx_dlssg.dll</b> 選取兩個檔案，拖到 Veyra 的視窗裡放開。如果 Windows 詢問權限，點擊<b>繼續</b>。",
+   "en": "Click “Open Veyra's component folder”. You now have two windows: <b>rel</b> and Veyra's folder (press <b>Win+←</b> and <b>Win+→</b> to put them side by side). Hold <b>Ctrl</b> and click <b>nvngx_dlss.dll</b> and <b>nvngx_dlssg.dll</b> to select both, then drag them into Veyra's window and let go. If Windows asks for permission, click <b>Continue</b>.",
+   "ja": "「Veyra のコンポーネントフォルダーを開く」をクリックします。<b>rel</b> と Veyra のフォルダーの 2 つのウィンドウが開きます（<b>Win+←</b> と <b>Win+→</b> で並べられます）。<b>Ctrl</b> を押しながら <b>nvngx_dlss.dll</b> と <b>nvngx_dlssg.dll</b> をクリックして選択し、Veyra のウィンドウへドラッグして離します。Windows に許可を求められたら<b>続行</b>をクリックします。"
+  },
+  {
+   "zh": "点击“打开下载文件夹”。右键点击 <b>DLSS-310.9.1.zip</b>，选择<b>全部解压缩…</b>，再点<b>解压缩</b>。在新打开的文件夹里依次双击 <b>lib</b> → <b>Windows_x86_64</b> → <b>rel</b>。",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "點擊「開啟下載資料夾」。右鍵點擊 <b>DLSS-310.9.1.zip</b>，選擇<b>全部解壓縮…</b>，再點<b>解壓縮</b>。在新開啟的資料夾裡依序雙擊 <b>lib</b> → <b>Windows_x86_64</b> → <b>rel</b>。",
+   "en": "Click “Open Downloads folder”. Right-click <b>DLSS-310.9.1.zip</b>, choose <b>Extract All…</b>, then click <b>Extract</b>. In the folder that opens, double-click <b>lib</b>, then <b>Windows_x86_64</b>, then <b>rel</b>.",
+   "ja": "「ダウンロードフォルダーを開く」をクリックします。<b>DLSS-310.9.1.zip</b> を右クリックし、<b>すべて展開…</b>を選んで<b>展開</b>をクリックします。開いたフォルダーで <b>lib</b> → <b>Windows_x86_64</b> → <b>rel</b> の順にダブルクリックします。"
+  },
+  {
+   "zh": "点击下面的橙色按钮，浏览器会打开 NVIDIA 的官方页面（DLSS SDK v310.9.1）。往下滚到 <b>Assets</b>，点击 <b>Source code (zip)</b>。文件会保存到你的<b>下载</b>文件夹。",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "點擊下面的橘色按鈕，瀏覽器會開啟 NVIDIA 的官方頁面（DLSS SDK v310.9.1）。往下捲到 <b>Assets</b>，點擊 <b>Source code (zip)</b>。檔案會儲存到你的<b>下載</b>資料夾。",
+   "en": "Click the orange button below. Your browser opens NVIDIA's official page (DLSS SDK v310.9.1). Scroll down to <b>Assets</b> and click <b>Source code (zip)</b>. It saves to your <b>Downloads</b> folder.",
+   "ja": "下のオレンジ色のボタンをクリックすると、ブラウザーで NVIDIA の公式ページ（DLSS SDK v310.9.1）が開きます。<b>Assets</b> までスクロールし、<b>Source code (zip)</b> をクリックします。<b>ダウンロード</b>フォルダーに保存されます。"
   },
   {
    "zh": "点击右侧按键，再按下新的组合键即可重新绑定；Esc 取消。",
@@ -13590,6 +13961,13 @@
    "ja": "表示言語"
   },
   {
+   "zh": "界面配色",
+   "src": "qml/SettingsPage.qml",
+   "zh-TW": "介面配色",
+   "en": "Color scheme",
+   "ja": "配色"
+  },
+  {
    "zh": "界面随时可调，不影响播放和增强设置。",
    "src": "qml/SettingsPage.qml",
    "zh-TW": "介面隨時可調，不影響播放和增強設定。",
@@ -13828,6 +14206,13 @@
    "ja": "OK"
   },
   {
+   "zh": "确认",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "確認",
+   "en": "Confirm",
+   "ja": "確認"
+  },
+  {
    "zh": "确认卸载",
    "src": "qml/CaptureSourceDialog.qml",
    "zh-TW": "確認解除安裝",
@@ -13940,6 +14325,13 @@
    "ja": "ウィンドウのキャプチャーには Windows Graphics Capture のみ使用できます"
   },
   {
+   "zh": "窗口在其他虚拟桌面上，暂时没有新画面：部分程序（如 Chrome、Edge）在所在桌面不显示时会暂停绘制",
+   "src": "src/source/ScreenCaptureSource.cpp",
+   "zh-TW": "視窗在其他虛擬桌面上，暫時沒有新畫面：部分程式（如 Chrome、Edge）在所在桌面不顯示時會暫停繪製",
+   "en": "The window is on another virtual desktop and has no new picture yet: some programs (such as Chrome and Edge) stop drawing while their desktop is not shown",
+   "ja": "ウィンドウは別の仮想デスクトップにあり、新しい映像がまだありません。一部のプログラム（Chrome、Edge など）は、そのデスクトップが表示されていない間は描画を止めます"
+  },
+  {
    "zh": "窗口小于裁剪范围，等待尺寸恢复",
    "src": "src/source/ScreenCaptureSource.cpp",
    "zh-TW": "視窗小於裁剪範圍，等待尺寸恢復",
@@ -13994,6 +14386,13 @@
    "zh-TW": "端點已開啟",
    "en": "Endpoint open",
    "ja": "エンドポイントを開きました"
+  },
+  {
+   "zh": "第三方 apex-compute/ANR 项目的补帧组件，不是 NVIDIA 官方组件；其作者目前禁止第三方再分发，只能自行下载",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "第三方 apex-compute/ANR 專案的補幀元件，不是 NVIDIA 官方元件；其作者目前禁止第三方再散佈，只能自行下載",
+   "en": "Frame generation from the third-party apex-compute/ANR project, not an official NVIDIA component. Its authors currently forbid redistribution, so you have to download it yourself",
+   "ja": "サードパーティの apex-compute/ANR プロジェクトのフレーム生成で、NVIDIA 公式ではありません。作者が再配布を禁止しているため、各自でダウンロードしてください"
   },
   {
    "zh": "第二次 %1",
@@ -14360,6 +14759,13 @@
    "ja": "ディテール保護"
   },
   {
+   "zh": "经典",
+   "src": "qml/SettingsPage.qml",
+   "zh-TW": "經典",
+   "en": "Classic",
+   "ja": "クラシック"
+  },
+  {
    "zh": "继续上次",
    "src": "qml/HomePage.qml",
    "zh-TW": "繼續上次",
@@ -14437,11 +14843,32 @@
    "ja": "エンコーダーが不明なフレーム番号を返しました"
   },
   {
+   "zh": "缺少",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "缺少",
+   "en": "Missing",
+   "ja": "不足"
+  },
+  {
+   "zh": "缺少 DLSS / NVIDIA 帧生成所需的运行组件。前往 设置 › NVIDIA 组件 查看安装指南。",
+   "src": "qml/DependencyBanner.qml",
+   "zh-TW": "缺少 DLSS / NVIDIA 幀生成所需的執行元件。前往 設定 › NVIDIA 元件 查看安裝指南。",
+   "en": "Files needed for DLSS / NVIDIA frame generation are missing. See Settings › NVIDIA components for a setup guide.",
+   "ja": "DLSS / NVIDIA フレーム生成に必要なファイルがありません。設定 › NVIDIA コンポーネント のガイドを確認してください。"
+  },
+  {
    "zh": "缺少此字幕格式的解码器",
    "src": "src/engine/Subtitles.cpp",
    "zh-TW": "缺少此字幕格式的解碼器",
    "en": "Decoder for this subtitle format is unavailable",
    "ja": "この字幕形式のデコーダーがありません"
+  },
+  {
+   "zh": "缺少运行组件，请到 设置 › NVIDIA 组件 查看安装指南",
+   "src": "src/ui/bridge/Hardware.cpp",
+   "zh-TW": "缺少執行元件，請到 設定 › NVIDIA 元件 查看安裝指南",
+   "en": "Runtime files missing; see Settings › NVIDIA components for a setup guide",
+   "ja": "ランタイムファイルがありません。設定 › NVIDIA コンポーネント のガイドを確認してください"
   },
   {
    "zh": "网状",
@@ -15599,6 +16026,20 @@
    "ja": "フレーム生成の選択が受け付けられなかったため、元の設定のままです。倍率と方式の対応範囲を確認してください"
   },
   {
+   "zh": "补帧里的 ANR 选项需要它；不是 NVIDIA 官方组件",
+   "src": "src/ui/bridge/Dependencies.cpp",
+   "zh-TW": "補幀裡的 ANR 選項需要它；不是 NVIDIA 官方元件",
+   "en": "Needed by the ANR frame generation option; not an official NVIDIA component",
+   "ja": "フレーム生成の ANR オプションに必要。NVIDIA 公式ではありません"
+  },
+  {
+   "zh": "补帧里的 DLSS 选项需要它",
+   "src": "src/ui/bridge/Dependencies.cpp",
+   "zh-TW": "補幀裡的 DLSS 選項需要它",
+   "en": "Needed by the DLSS frame generation option",
+   "ja": "フレーム生成の DLSS オプションに必要"
+  },
+  {
    "zh": "裁剪范围超出画面",
    "src": "src/source/ScreenCaptureSource.cpp",
    "zh-TW": "裁剪範圍超出畫面",
@@ -15772,6 +16213,20 @@
    "zh-TW": "影片首幀讀取失敗",
    "en": "Could not read the first video frame",
    "ja": "動画の最初のフレームを読み取れませんでした"
+  },
+  {
+   "zh": "解压下载的文件",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "解壓縮下載的檔案",
+   "en": "Unzip the download",
+   "ja": "ダウンロードしたファイルを展開"
+  },
+  {
+   "zh": "解压，再把全部文件拖进 anr 文件夹",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "解壓縮，再把全部檔案拖進 anr 資料夾",
+   "en": "Unzip it, then drag every file into the anr folder",
+   "ja": "展開して、すべてのファイルを anr フォルダーへドラッグ"
   },
   {
    "zh": "解码",
@@ -17349,6 +17804,20 @@
    "ja": "このモードにはまだプリセットがありません。"
   },
   {
+   "zh": "这个窗口在其他虚拟桌面上，不用切换桌面即可捕获；部分程序在所在桌面不显示时会暂停绘制",
+   "src": "qml/ScreenSourceDialog.qml",
+   "zh-TW": "這個視窗在其他虛擬桌面上，不用切換桌面即可擷取；部分程式在所在桌面不顯示時會暫停繪製",
+   "en": "This window is on another virtual desktop and can be captured without switching to it; some programs stop drawing while their desktop is not shown",
+   "ja": "このウィンドウは別の仮想デスクトップにあり、切り替えずにキャプチャーできます。一部のプログラムは、そのデスクトップが表示されていない間は描画を止めます"
+  },
+  {
+   "zh": "这个目标所在的显示器接在 %1 上，Veyra 在 %2 上处理：每帧画面都要由 Windows 在两块显卡之间复制，延迟更高。双显卡分工时，建议把显示器接到处理用的显卡上（笔记本可开独显直连）",
+   "src": "qml/ScreenSourceDialog.qml",
+   "zh-TW": "這個目標所在的顯示器接在 %1 上，Veyra 在 %2 上處理：每格畫面都要由 Windows 在兩張顯示卡之間複製，延遲更高。雙顯示卡分工時，建議把顯示器接到處理用的顯示卡上（筆電可開啟獨顯直連）",
+   "en": "The display this target is on is connected to %1, while Veyra processes on %2: Windows copies every frame between the two GPUs, which adds latency. When two GPUs share the work, connect the display to the processing GPU (on a laptop, turn on the discrete-GPU-only (MUX) mode)",
+   "ja": "この対象が映っているディスプレイは %1 に接続され、Veyra は %2 で処理しています。毎フレーム Windows が 2 つの GPU の間でコピーするため、遅延が増えます。2 つの GPU で分担する場合は、ディスプレイを処理用の GPU に接続してください（ノート PC では dGPU 直結モードをオンに）"
+  },
+  {
    "zh": "这个语言的翻译没有找到，界面保持简体中文",
    "src": "src/ui/bridge/Preferences.cpp",
    "zh-TW": "這個語言的翻譯沒有找到，介面保持簡體中文",
@@ -17704,6 +18173,13 @@
    "zh-TW": "循序",
    "en": "Progressive",
    "ja": "プログレッシブ"
+  },
+  {
+   "zh": "通过 Wine / Proton 运行 Veyra 时的步骤；尚未测试",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "透過 Wine / Proton 執行 Veyra 時的步驟；尚未測試",
+   "en": "Steps for running Veyra through Wine / Proton; not tested",
+   "ja": "Wine / Proton で Veyra を動かす場合の手順。未テスト"
   },
   {
    "zh": "部分轨道当前封装装不下，未保留（详见队列说明）",
@@ -18147,6 +18623,13 @@
    "ja": "同じファイルを開き直すと前回の位置から再開"
   },
   {
+   "zh": "重新检查",
+   "src": "qml/DependencyGuide.qml",
+   "zh-TW": "重新檢查",
+   "en": "Check again",
+   "ja": "再確認"
+  },
+  {
    "zh": "重置本页",
    "src": "qml/ProPage.qml",
    "zh-TW": "重置本頁",
@@ -18299,6 +18782,13 @@
    "zh-TW": "降低的是基礎超分後的畫面，不是原始輸入；選項必須小於基礎結果和第二次超分目標。",
    "en": "This reduces the base SR result, not the original input. Select a size below both the base result and the second SR target.",
    "ja": "基本超解像の結果を縮小します。元の入力ではありません。基本結果と2回目の目標の両方より小さいサイズを選択してください。"
+  },
+  {
+   "zh": "随启动动画播放一次，打开任意播放源后自动暂停",
+   "src": "qml/SettingsPage.qml",
+   "zh-TW": "隨啟動動畫播放一次，開啟任何播放來源後自動暫停",
+   "en": "Plays once with the startup animation and pauses when any source opens",
+   "ja": "起動アニメーションと一緒に一度だけ再生し、ソースを開くと自動で一時停止します"
   },
   {
    "zh": "隐藏播放条",
@@ -18635,13 +19125,6 @@
    "zh-TW": "音訊漂移校正重置失敗",
    "en": "Could not reset the audio drift correction",
    "ja": "音声のドリフト補正をリセットできませんでした"
-  },
-  {
-   "zh": "音频监听",
-   "src": "qml/CaptureSourceDialog.qml",
-   "zh-TW": "音訊監聽",
-   "en": "Audio monitoring",
-   "ja": "音声モニター"
   },
   {
    "zh": "音频线程异常，请重新打开采集",
@@ -19904,11 +20387,11 @@
    "ja": "；今回の書き出しは AMD FSR 超解像を使用します"
   },
   {
-   "zh": "；默认“高”，同时运行游戏或其他重负载程序变慢时可改为“普通”",
+   "zh": "；默认“实时”，同时运行游戏或其他重负载程序变慢时可改为“高”或“普通”",
    "src": "qml/SettingsPage.qml",
-   "zh-TW": "；預設“高”，同時執行遊戲或其他重負載程式變慢時可改為“普通”",
-   "en": "; High by default. If a game or other heavy program running alongside slows down, choose Normal",
-   "ja": "；既定は「高」。同時に動かすゲームや重い処理が遅くなる場合は「通常」に変更してください"
+   "zh-TW": "；預設“即時”，同時執行遊戲或其他重負載程式變慢時可改為“高”或“普通”",
+   "en": "; Realtime by default. If a game or other heavy program running alongside slows down, choose High or Normal",
+   "ja": "；既定は「リアルタイム」。同時に動かすゲームや重い処理が遅くなる場合は「高」か「通常」に変更してください"
   },
   {
    "zh": "展开",
@@ -19918,6 +20401,300 @@
    "zh-TW": "展開",
    "en": "Expand",
    "ja": "展開"
+  },
+  {
+   "zh": "输出未达标",
+   "src": "apps/veyra/ui/LiveStatusHistory.h",
+   "zh-TW": "輸出未達標",
+   "en": "Output below target",
+   "ja": "出力が目標未達"
+  },
+  {
+   "zh": "补帧调度降档",
+   "src": "apps/veyra/ui/LiveStatusHistory.h",
+   "zh-TW": "補幀調度降檔",
+   "en": "Frame generation scaled back",
+   "ja": "フレーム生成を抑制中"
+  },
+  {
+   "zh": "输入帧率不足",
+   "src": "apps/veyra/ui/LiveStatusHistory.h",
+   "zh-TW": "輸入幀率不足",
+   "en": "Input frame rate too low",
+   "ja": "入力フレームレート不足"
+  },
+  {
+   "zh": "输入时间线异常",
+   "src": "apps/veyra/ui/LiveStatusHistory.h",
+   "zh-TW": "輸入時間線異常",
+   "en": "Input timeline irregular",
+   "ja": "入力タイムライン異常"
+  },
+  {
+   "zh": "NVIDIA G-SYNC 配置",
+   "src": "qml/NvidiaVrrProfileRow.qml",
+   "zh-TW": "NVIDIA G-SYNC 設定",
+   "en": "NVIDIA G-SYNC setup",
+   "ja": "NVIDIA G-SYNC 設定"
+  },
+  {
+   "zh": "仅为当前软件路径配置窗口和全屏 G-SYNC，可恢复原设置；显示器和驱动的 G-SYNC 总开关仍需开启。",
+   "src": "src/ui/NvidiaVrrProfileController.cpp",
+   "zh-TW": "僅為目前軟體路徑設定視窗和全螢幕 G-SYNC，可還原原設定；顯示器和驅動程式的 G-SYNC 總開關仍需開啟。",
+   "en": "Configure windowed and fullscreen G-SYNC for this application path, with an option to restore the original settings. G-SYNC must also be enabled on the monitor and in the driver.",
+   "ja": "現在のアプリのパスに対してウィンドウと全画面の G-SYNC を設定します。元の設定に戻せます。モニターとドライバー側でも G-SYNC を有効にする必要があります。"
+  },
+  {
+   "zh": "修复",
+   "src": "qml/NvidiaVrrProfileRow.qml",
+   "zh-TW": "修復",
+   "en": "Repair",
+   "ja": "修復"
+  },
+  {
+   "zh": "另一个软件实例正在处理驱动配置，请稍后重试。",
+   "src": "src/ui/NvidiaVrrProfileController.cpp",
+   "zh-TW": "另一個軟體執行個體正在處理驅動程式設定，請稍後重試。",
+   "en": "Another application instance is updating the driver profile. Try again shortly.",
+   "ja": "別のアプリのインスタンスがドライバー設定を処理中です。しばらくしてから再試行してください。"
+  },
+  {
+   "zh": "尚未检查",
+   "src": "src/ui/NvidiaVrrProfileController.cpp",
+   "zh-TW": "尚未檢查",
+   "en": "Not checked",
+   "ja": "未確認"
+  },
+  {
+   "zh": "尚未配置窗口和全屏",
+   "src": "src/ui/NvidiaVrrProfileController.cpp",
+   "zh-TW": "尚未設定視窗和全螢幕",
+   "en": "Windowed and fullscreen not configured",
+   "ja": "ウィンドウと全画面は未設定"
+  },
+  {
+   "zh": "已允许窗口和全屏",
+   "src": "src/ui/NvidiaVrrProfileController.cpp",
+   "zh-TW": "已允許視窗和全螢幕",
+   "en": "Windowed and fullscreen allowed",
+   "ja": "ウィンドウと全画面を許可済み"
+  },
+  {
+   "zh": "当前配置无法单独修改",
+   "src": "src/ui/NvidiaVrrProfileController.cpp",
+   "zh-TW": "目前設定無法單獨修改",
+   "en": "This profile cannot be changed independently",
+   "ja": "このプロファイルは個別に変更できません"
+  },
+  {
+   "zh": "恢复原设置",
+   "src": "qml/NvidiaVrrProfileRow.qml",
+   "zh-TW": "還原原設定",
+   "en": "Restore original",
+   "ja": "元の設定に戻す"
+  },
+  {
+   "zh": "恢复记录与当前配置不一致",
+   "src": "src/ui/NvidiaVrrProfileController.cpp",
+   "zh-TW": "還原記錄與目前設定不一致",
+   "en": "Backup does not match the current profile",
+   "ja": "復元記録と現在の設定が一致しません"
+  },
+  {
+   "zh": "操作结果尚未确认，请重新检查。已有恢复记录会保留，不会自动重试写入。",
+   "src": "src/ui/NvidiaVrrProfileController.cpp",
+   "zh-TW": "操作結果尚未確認，請重新檢查。既有還原記錄會保留，不會自動重試寫入。",
+   "en": "The result has not been confirmed. Check again. The backup is retained; writes will not be retried automatically.",
+   "ja": "操作結果を確認できませんでした。再確認してください。復元記録は保持され、書き込みが自動で再試行されることはありません。"
+  },
+  {
+   "zh": "无法保存或清理恢复记录",
+   "src": "src/ui/NvidiaVrrProfileController.cpp",
+   "zh-TW": "無法儲存或清理還原記錄",
+   "en": "Cannot save or remove the backup",
+   "ja": "復元記録を保存または削除できません"
+  },
+  {
+   "zh": "无法读取 NVIDIA 驱动配置；请检查显卡和驱动是否支持此功能。",
+   "src": "src/ui/NvidiaVrrProfileController.cpp",
+   "zh-TW": "無法讀取 NVIDIA 驅動程式設定；請檢查顯示卡與驅動程式是否支援此功能。",
+   "en": "Cannot read NVIDIA driver profiles. Check whether the GPU and driver support this feature.",
+   "ja": "NVIDIA ドライバーの設定を読み取れません。GPU とドライバーがこの機能に対応しているか確認してください。"
+  },
+  {
+   "zh": "未能确认驱动配置",
+   "src": "src/ui/NvidiaVrrProfileController.cpp",
+   "zh-TW": "未能確認驅動程式設定",
+   "en": "Driver profile not confirmed",
+   "ja": "ドライバー設定を確認できません"
+  },
+  {
+   "zh": "正在处理驱动配置…",
+   "src": "src/ui/NvidiaVrrProfileController.cpp",
+   "zh-TW": "正在處理驅動程式設定…",
+   "en": "Processing driver profile…",
+   "ja": "ドライバー設定を処理中…"
+  },
+  {
+   "zh": "请以管理员身份启动本软件后重试；完成配置后可恢复普通方式启动。",
+   "src": "src/ui/NvidiaVrrProfileController.cpp",
+   "zh-TW": "請以系統管理員身分啟動本軟體後重試；完成設定後可恢復一般方式啟動。",
+   "en": "Run this application as administrator and try again. After setup, you can start it normally.",
+   "ja": "このアプリを管理者として起動して再試行してください。設定後は通常の方法で起動できます。"
+  },
+  {
+   "zh": "请检查软件数据目录是否可写。恢复记录保留在该目录的 driver-profiles 文件夹中。",
+   "src": "src/ui/NvidiaVrrProfileController.cpp",
+   "zh-TW": "請檢查軟體資料目錄是否可寫入。還原記錄保留在該目錄的 driver-profiles 資料夾中。",
+   "en": "Check that the application data directory is writable. Backups are kept in its driver-profiles folder.",
+   "ja": "アプリのデータフォルダーに書き込めるか確認してください。復元記録はその中の driver-profiles フォルダーに保存されます。"
+  },
+  {
+   "zh": "配置或恢复记录发生变化，已停止本次操作。请重新检查，必要时使用 Profile Inspector 手动处理。",
+   "src": "src/ui/NvidiaVrrProfileController.cpp",
+   "zh-TW": "設定或還原記錄發生變化，已停止本次操作。請重新檢查，必要時使用 Profile Inspector 手動處理。",
+   "en": "The profile or backup changed, so this operation was stopped. Check again, or use Profile Inspector to handle it manually.",
+   "ja": "設定または復元記録が変更されたため、今回の操作を停止しました。再確認し、必要に応じて Profile Inspector で手動設定してください。"
+  },
+  {
+   "zh": "配置未独立绑定当前程序路径，可能由其他程序共用。请使用 Profile Inspector 单独配置本软件。",
+   "src": "src/ui/NvidiaVrrProfileController.cpp",
+   "zh-TW": "設定未獨立繫結目前程式路徑，可能與其他程式共用。請使用 Profile Inspector 單獨設定本軟體。",
+   "en": "The profile is not exclusive to this application path and may be shared. Use Profile Inspector to configure this application separately.",
+   "ja": "プロファイルが現在のアプリのパス専用ではなく、他のアプリと共有されている可能性があります。Profile Inspector でこのアプリを個別に設定してください。"
+  },
+  {
+   "zh": "需要管理员权限",
+   "src": "src/ui/NvidiaVrrProfileController.cpp",
+   "zh-TW": "需要系統管理員權限",
+   "en": "Administrator rights required",
+   "ja": "管理者権限が必要です"
+  },
+  {
+   "zh": "驱动配置已保存，请手动重启本软件。是否实际生效仍以驱动和显示器报告为准。",
+   "src": "src/ui/NvidiaVrrProfileController.cpp",
+   "zh-TW": "驅動程式設定已儲存，請手動重新啟動本軟體。是否實際生效仍以驅動程式和顯示器回報為準。",
+   "en": "The driver profile was saved. Restart this application manually. Actual activation still depends on the driver and monitor reports.",
+   "ja": "ドライバー設定を保存しました。このアプリを手動で再起動してください。実際の有効状態はドライバーとモニターの報告で確認してください。"
+  },
+  {
+   "zh": "驱动配置正在被占用",
+   "src": "src/ui/NvidiaVrrProfileController.cpp",
+   "zh-TW": "驅動程式設定正在被使用",
+   "en": "Driver profile is in use",
+   "ja": "ドライバー設定が使用中です"
+  },
+  {
+   "zh": "2. 回到 Veyra，在“音频输入”选“Veyra 虚拟扬声器”，再连接采集。音频输出选真实耳机或音箱，即可使用音画同步。\n\n可选改名：在 Windows 声音的“播放”页打开 CABLE Input 的属性，在“常规”里改成“Veyra 采集音频”。",
+   "src": "qml/CaptureSourceDialog.qml",
+   "zh-TW": "2. 回到 Veyra，在「音訊輸入」選「Veyra 虛擬揚聲器」，再連接擷取。音訊輸出選擇實際耳機或喇叭，即可使用音畫同步。\n\n可選改名：在 Windows 聲音的「播放」頁開啟 CABLE Input 的內容，在「一般」中改成「Veyra 擷取音訊」。",
+   "en": "2. In Veyra, select Veyra virtual speaker under Audio input, then connect capture. Select real headphones or speakers as the audio output to use A/V sync.\n\nOptional: rename CABLE Input to Veyra capture audio in Windows Sound → Playback → Properties → General.",
+   "ja": "2. Veyraの「音声入力」で「Veyra仮想スピーカー」を選択して接続します。出力に実際のヘッドホンやスピーカーを選ぶと、音声と映像の同期を利用できます。\n\n必要に応じて、Windowsのサウンド → 再生 → CABLE Inputのプロパティ → 全般で名前を変更できます。"
+  },
+  {
+   "zh": "PS5 仍会发一路 720p 30fps、约 5 Mbps 的保活画面，本机收到即丢弃；PS5 同一时间只允许一个远程游玩连接。再串流时记得选择上面的「音频输入」。",
+   "src": "qml/CaptureSourceDialog.qml",
+   "zh-TW": "PS5 仍會傳送一路 720p 30fps、約 5 Mbps 的保活畫面，本機收到即丟棄；PS5 同時只允許一個遠端遊玩連線。再次串流時記得選擇上方的「音訊輸入」。",
+   "en": "PS5 still sends a 720p 30fps keep-alive video at about 5 Mbps, discarded on arrival. PS5 allows only one Remote Play connection at a time. Select an Audio input above when streaming again.",
+   "ja": "PS5は接続維持用に720p 30fps、約5Mbpsの映像を送信しますが、このPCでは受信後すぐに破棄します。PS5のリモートプレイは同時に1接続のみです。再配信時は上の「音声入力」を選択してください。"
+  },
+  {
+   "zh": "上次的音频输入未连接，请插回设备或重新选择音频输入",
+   "src": "src/ui/bridge/Capture.cpp",
+   "zh-TW": "上次的音訊輸入未連接，請重新連接裝置或選擇音訊輸入",
+   "en": "The previous audio input is disconnected. Reconnect it or select another audio input.",
+   "ja": "前回の音声入力が接続されていません。再接続するか、音声入力を選び直してください。"
+  },
+  {
+   "zh": "不采集音频",
+   "src": "qml/CaptureSourceDialog.qml",
+   "zh-TW": "不擷取音訊",
+   "en": "No audio input",
+   "ja": "音声を取り込まない"
+  },
+  {
+   "zh": "关闭后仍可录制和保存回放；本机不播放采集声音",
+   "src": "qml/AudioSettingsDialog.qml",
+   "zh-TW": "關閉後仍可錄製和儲存重播；本機不播放擷取聲音",
+   "en": "When off, recording and replay still receive audio; capture sound is not played locally.",
+   "ja": "オフでも録画とリプレイに音声は保存されます。取り込んだ音声はこのPCでは再生されません。"
+  },
+  {
+   "zh": "录入所选音频输入，不受音量、静音和本机音频监听开关影响；采集卡需选择音频输入",
+   "src": "qml/SettingsPage.qml",
+   "zh-TW": "錄入所選音訊輸入，不受音量、靜音和本機音訊監聽開關影響；擷取卡需選擇音訊輸入",
+   "en": "Records the selected audio input regardless of volume, mute or local monitoring. Select an audio input for capture cards.",
+   "ja": "選択した音声入力を音量、ミュート、ローカルモニター設定に関係なく録音します。キャプチャーカードでは音声入力を選択してください。"
+  },
+  {
+   "zh": "录制采集卡声音需选择输入；本机监听可独立关闭",
+   "src": "qml/CaptureSourceDialog.qml",
+   "zh-TW": "錄製擷取卡聲音需選擇輸入；本機監聽可獨立關閉",
+   "en": "Select an audio input to record capture-card sound. Local monitoring can be turned off independently.",
+   "ja": "キャプチャーカードの音声を録音するには入力を選択してください。ローカルモニターは個別にオフにできます。"
+  },
+  {
+   "zh": "本机音频监听",
+   "src": "qml/AudioSettingsDialog.qml",
+   "zh-TW": "本機音訊監聽",
+   "en": "Local audio monitoring",
+   "ja": "ローカル音声モニター"
+  },
+  {
+   "zh": "音频输入",
+   "src": "qml/CaptureSourceDialog.qml",
+   "zh-TW": "音訊輸入",
+   "en": "Audio input",
+   "ja": "音声入力"
+  },
+  {
+   "zh": "显示区域红框",
+   "src": "qml/Veyra/MaskEditor.qml",
+   "zh-TW": "顯示區域紅框",
+   "en": "Show region outlines",
+   "ja": "領域の赤枠を表示"
+  },
+  {
+   "zh": "选中区域后可拖动位置；红框不会写入录制或导出",
+   "src": "qml/Veyra/MaskEditor.qml",
+   "zh-TW": "選中區域後可拖曳位置；紅框不會寫入錄製或匯出",
+   "en": "Select a region to move it. Outlines are excluded from recordings and exports.",
+   "ja": "領域を選択して移動できます。赤枠は録画や書き出しに含まれません。"
+  },
+  {
+   "zh": "已选中",
+   "src": "qml/Veyra/MaskEditor.qml",
+   "zh-TW": "已選中",
+   "en": "Selected",
+   "ja": "選択中"
+  },
+  {
+   "zh": "选中",
+   "src": "qml/Veyra/MaskEditor.qml",
+   "zh-TW": "選中",
+   "en": "Select",
+   "ja": "選択"
+  },
+  {
+   "zh": "打开软件播放一次，动画结束后继续；打开媒体或关闭声音立即停止",
+   "src": "qml/Veyra/SettingsPage.qml",
+   "zh-TW": "開啟軟體播放一次，動畫結束後繼續；開啟媒體或關閉聲音立即停止",
+   "en": "Plays once on launch, continuing after the intro. Opening media or turning sound off stops it immediately.",
+   "ja": "起動時に一度再生し、アニメ終了後も継続。メディアを開くか音声をオフにすると即停止します。"
+  },
+  {
+   "zh": "停止本次启动音乐",
+   "src": "qml/Veyra/Main.qml",
+   "zh-TW": "停止本次啟動音樂",
+   "en": "Stop music for this launch",
+   "ja": "今回の起動音楽を停止"
+  },
+  {
+   "zh": "每次启动播放一次，动画结束后继续；此开关会保存，角落按钮仅停止本次",
+   "src": "qml/Veyra/SettingsPage.qml",
+   "zh-TW": "每次啟動播放一次，動畫結束後繼續；此開關會儲存，角落按鈕僅停止本次",
+   "en": "Plays once per launch, continuing after the intro. This setting is saved; the corner button stops only this launch.",
+   "ja": "起動ごとに一度再生し、アニメ終了後も継続。この設定は保存され、隅のボタンは今回のみ停止します。"
   }
  ]
 }

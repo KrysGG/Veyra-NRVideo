@@ -15,7 +15,7 @@ VPage {
     id: root
     signal requestPage(string page)
 
-    property string section: "look"
+    property string section: (typeof vyTest !== "undefined" && vyTest.settingsSection) ? vyTest.settingsSection : "look"
     property bool hdrAdvancedExpanded: false
     // The shortcut row waiting for a new key ("" = none).
     property string capturingKey: ""
@@ -26,7 +26,7 @@ VPage {
         // render(true): 480 ms, i*40 ms, y 12).
         Qt.callLater(() => stagger(sectionColumns[section] || null))
     }
-    readonly property var sectionColumns: ({ look: secLook, window: secWindow, play: secPlay, audio: secAudio, perf: secPerf, compat: secCompat, ps5: secPs5, keys: secKeys, comp: secComp, about: secAbout, sponsor: secSponsor })
+    readonly property var sectionColumns: ({ look: secLook, window: secWindow, play: secPlay, audio: secAudio, perf: secPerf, compat: secCompat, deps: secDeps, ps5: secPs5, keys: secKeys, comp: secComp, about: secAbout, sponsor: secSponsor })
     Component { id: staggerComp; VRise.Stagger {} }
     function stagger(col) {
         if (Theme.reduced || !col) return
@@ -41,11 +41,14 @@ VPage {
 
     readonly property var sections: [
         { id: "look",   label: qsTr("外观"), icon: "palette" },
+        { id: "themes", label: qsTr("Themes"), icon: "palette" },
         { id: "window", label: qsTr("启动与窗口"), icon: "appwin" },
         { id: "play",   label: qsTr("播放", "section"), icon: "play" },
         { id: "audio",  label: qsTr("音频"), icon: "vol" },
         { id: "perf",   label: qsTr("性能"), icon: "gauge" },
         { id: "compat", label: qsTr("兼容"), icon: "monitor" },
+        // Yellow while a DLSS file this card could use is missing.
+        { id: "deps",  label: qsTr("NVIDIA 组件"), icon: "layers", tint: veyra.nvidiaDependenciesMissing ? Theme.warn : undefined },
         { id: "ps5",   label: qsTr("PS5 串流"), icon: "gamepad" },
         { id: "keys",  label: qsTr("快捷键"), icon: "zap" },
         { id: "comp",  label: qsTr("组件与许可"), icon: "box" },
@@ -148,6 +151,81 @@ VPage {
 
                 // --- 外观 ---
                 ColumnLayout {
+                    id: secThemes
+                    Layout.fillWidth: true
+                    spacing: 12
+                    visible: root.section === "themes"
+                    VH1 { text: qsTr("Themes") }
+                    Text {
+                        text: qsTr("Colour the whole app. Video, enhancement and frame pacing are not affected.")
+                        color: Theme.t2
+                        font.family: Theme.fontUi
+                        font.pixelSize: Theme.fsBody
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                    }
+                    Flow {
+                        objectName: "set-themes"
+                        Layout.fillWidth: true
+                        spacing: 14
+                        Repeater {
+                            model: [
+                                { id: "default", name: qsTr("Veyra"), blurb: qsTr("The original graphite look"),
+                                  bg: ["#070709", "#17171C"], swatches: ["#FF8A3D", "#3DDC84", "#B79BFF", "#F3F3F5"] },
+                                { id: "vice", name: qsTr("Vice Nights"), blurb: qsTr("Neon sunset: hot pink, ocean teal, night violet"),
+                                  bg: ["#0A0616", "#3A1A5E"], swatches: ["#FF3EA5", "#2EF2D6", "#A87BFF", "#FFB04A"] }
+                            ]
+                            delegate: Rectangle {
+                                id: themeCard
+                                required property var modelData
+                                readonly property bool on: (veyra.preferences.theme || "default") === modelData.id
+                                objectName: "set-theme-" + modelData.id
+                                width: 260; height: 150
+                                radius: Theme.rCard
+                                border.width: on ? 2 : 1
+                                border.color: on ? Theme.accent : (cardHover.hovered ? Theme.stroke2 : Theme.stroke)
+                                gradient: Gradient {
+                                    orientation: Gradient.Vertical
+                                    GradientStop { position: 0.0; color: themeCard.modelData.bg[1] }
+                                    GradientStop { position: 1.0; color: themeCard.modelData.bg[0] }
+                                }
+                                scale: cardHover.hovered && !on ? 1.02 : 1
+                                Behavior on scale { NumberAnimation { duration: Theme.d(240); easing.bezierCurve: Theme.spring } }
+                                Behavior on border.color { ColorAnimation { duration: Theme.d(200) } }
+                                Column {
+                                    anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
+                                    anchors.margins: 14
+                                    spacing: 6
+                                    Row {
+                                        spacing: 6
+                                        Repeater {
+                                            model: themeCard.modelData.swatches
+                                            delegate: Rectangle { required property var modelData; width: 18; height: 18; radius: 9; color: modelData }
+                                        }
+                                    }
+                                    Text {
+                                        text: themeCard.modelData.name + (themeCard.on ? qsTr("  ·  Active") : "")
+                                        color: "#FFFFFF"
+                                        font.family: Theme.fontUi; font.pixelSize: Theme.fsH3
+                                        font.weight: Font.DemiBold; font.variableAxes: Theme.axesDemiBold
+                                    }
+                                    Text {
+                                        text: themeCard.modelData.blurb
+                                        color: Qt.rgba(1, 1, 1, 0.7)
+                                        font.family: Theme.fontUi; font.pixelSize: Theme.fsSmall
+                                        width: parent.width; wrapMode: Text.WordWrap
+                                    }
+                                }
+                                HoverHandler { id: cardHover; cursorShape: Qt.PointingHandCursor }
+                                TapHandler { onTapped: veyra.setPreference("theme", themeCard.modelData.id) }
+                                Accessible.role: Accessible.RadioButton
+                                Accessible.name: themeCard.modelData.name
+                                Accessible.checked: themeCard.on
+                            }
+                        }
+                    }
+                }
+                ColumnLayout {
                     id: secLook
                     Layout.fillWidth: true
                     spacing: 12
@@ -162,6 +240,44 @@ VPage {
                         wrapMode: Text.WordWrap
                     }
                     VGroup {
+                        // 日落 (the default) or the original black-grey 经典 palette.
+                        VRow {
+                            label: qsTr("界面配色")
+                            hint: qsTr("日落：深靛紫底、日落渐变强调色；经典：原来的黑灰配色")
+                            VSeg {
+                                objectName: "set-palette"
+                                options: [{ id: "dusk", label: qsTr("日落") }, { id: "classic", label: qsTr("经典") }]
+                                current: veyra.preferences.palette === "classic" ? "classic" : "dusk"
+                                onPicked: id => veyra.setPreference("palette", id)
+                            }
+                        }
+                        // The dusk palette's intro (DuskIntro.qml); classic has none.
+                        VRow {
+                            visible: Theme.dusk
+                            label: qsTr("启动动画")
+                            hint: qsTr("日落配色下打开软件时播放，单击或按任意键可跳过")
+                            VSwitch {
+                                objectName: "set-intro"
+                                checked: veyra.preferences.introAnimation !== false
+                                onToggled: checked => veyra.setPreference("introAnimation", checked)
+                            }
+                        }
+                        // This saved switch controls future launches. The corner button
+                        // stops only the current launch and leaves this preference intact.
+                        VRow {
+                            label: qsTr("启动音乐")
+                            hint: typeof vyMusic !== "undefined" && vyMusic.available
+                                  ? qsTr("每次启动播放一次，动画结束后继续；此开关会保存，角落按钮仅停止本次")
+                                  : qsTr("未找到音乐文件：程序目录下的 media/startup-music.mp3")
+                            VSwitch {
+                                objectName: "set-intro-music"
+                                checked: veyra.preferences.introMusic !== false
+                                onToggled: checked => {
+                                    veyra.setPreference("introMusic", checked)
+                                    if (!checked && typeof vyMusic !== "undefined") vyMusic.pause()
+                                }
+                            }
+                        }
                         VRow {
                             label: qsTr("页面切换栏")
                             hint: qsTr("平时隐藏；鼠标碰到窗口顶部时弹下来")
@@ -180,13 +296,24 @@ VPage {
                                 objectName: "set-accent"
                                 spacing: 10
                                 Repeater {
-                                    model: [{ id: "orange", c: "#FF8A3D", tip: qsTr("橙色") }, { id: "white", c: "#F3F3F5", tip: qsTr("白色光晕") }]
+                                    model: [{ id: "orange", c: "#FF8A3D", tip: qsTr("橙色"), duskTip: qsTr("日落渐变") },
+                                            { id: "white", c: "#F3F3F5", tip: qsTr("白色光晕"), duskTip: qsTr("白色光晕") }]
                                     delegate: Rectangle {
+                                        id: swatch
                                         required property var modelData
                                         readonly property bool on: (veyra.preferences.accent || "orange") === modelData.id
                                         objectName: "set-accent-" + modelData.id
                                         width: 24; height: 24; radius: 12
-                                        color: modelData.c
+                                        // The dusk palette shows what each choice paints: the sunset
+                                        // gradient, or the neon white (the ring stays on top).
+                                        color: Theme.dusk ? "#FFF6FB" : modelData.c
+                                        gradient: Theme.dusk && modelData.id === "orange" ? sunset : undefined
+                                        Gradient {
+                                            id: sunset
+                                            orientation: Gradient.Horizontal
+                                            GradientStop { position: 0.0; color: Theme.accentFrom }
+                                            GradientStop { position: 1.0; color: Theme.accentTo }
+                                        }
                                         border.width: 2
                                         border.color: on ? "#FFFFFF" : "transparent"
                                         scale: on ? 1.12 : 1
@@ -194,7 +321,7 @@ VPage {
                                         HoverHandler { id: swHover; cursorShape: Qt.PointingHandCursor }
                                         TapHandler { onTapped: veyra.setPreference("accent", modelData.id) }
                                         ToolTip.visible: swHover.hovered
-                                        ToolTip.text: modelData.tip
+                                        ToolTip.text: Theme.dusk ? modelData.duskTip : modelData.tip
                                     }
                                 }
                             }
@@ -219,7 +346,7 @@ VPage {
                         }
                         VRow {
                             label: qsTr("背景渐变强度")
-                            hint: qsTr("深黑底上的极轻渐变与抖动（防色带）")
+                            hint: Theme.dusk ? qsTr("日落天空的渐变强度，带抖动防色带") : qsTr("深黑底上的极轻渐变与抖动（防色带）")
                             VSeg {
                                 objectName: "set-backdrop"
                                 options: [{ id: "0", label: qsTr("无") }, { id: "1", label: qsTr("轻") }, { id: "2", label: qsTr("中") }]
@@ -251,7 +378,7 @@ VPage {
                                     { id: "en", label: "English" },
                                     { id: "ja", label: qsTr("日本語") }
                                 ]
-                                value: (options.find(o => o.id === (veyra.preferences.language || "auto")) || options[0]).label
+                                value: (options.find(o => o.id === (veyra.preferences.language || "en")) || options[0]).label
                                 onPicked: id => veyra.setPreference("language", id)
                             }
                         }
@@ -610,7 +737,7 @@ VPage {
                         }
                         VRow {
                             label: qsTr("录制声音")
-                            hint: qsTr("录入播放器正在播放的声音，不受音量和静音影响；采集卡需要开启音频监听")
+                            hint: qsTr("录入所选音频输入，不受音量、静音和本机音频监听开关影响；采集卡需选择音频输入")
                             VSwitch {
                                 objectName: "set-recaudio"
                                 checked: veyra.recordingAudio
@@ -786,11 +913,11 @@ VPage {
                     VGroup {
                         VRow {
                             label: qsTr("GPU 优先级")
-                            hint: veyra.gpuPriorityStatus + qsTr("；默认“高”，同时运行游戏或其他重负载程序变慢时可改为“普通”")
+                            hint: veyra.gpuPriorityStatus + qsTr("；默认“实时”，同时运行游戏或其他重负载程序变慢时可改为“高”或“普通”")
                             VSeg {
                                 objectName: "set-gpu-priority"
                                 options: [{ id: "normal", label: qsTr("普通") }, { id: "high", label: qsTr("高") }, { id: "realtime", label: qsTr("实时") }]
-                                current: veyra.preferences.gpuPriority || "high"
+                                current: veyra.preferences.gpuPriority || "realtime"
                                 onPicked: id => veyra.setPreference("gpuPriority", id)
                             }
                         }
@@ -824,6 +951,17 @@ VPage {
                                 objectName: "set-compute-gpu"
                                 checked: veyra.preferences.computeOnMonitorGpu === true
                                 onToggled: v => veyra.setPreference("computeOnMonitorGpu", v)
+                            }
+                        }
+                        VRow {
+                            label: qsTr("Frame generation GPU")
+                            hint: veyra.fgGpuStatus
+                            VSelect {
+                                objectName: "set-fg-gpu"
+                                implicitWidth: 230
+                                options: [{ id: "", label: qsTr("Same as compute GPU") }].concat(veyra.gpuMonitorChoices.slice(1))
+                                value: (options.find(o => o.id === (veyra.preferences.fgGpu || "")) || options[0]).label
+                                onPicked: id => veyra.setPreference("fgGpu", id)
                             }
                         }
                         VRow {
@@ -1178,7 +1316,7 @@ VPage {
                     RowLayout {
                         spacing: 18
                         Image {
-                            source: "logo.png"
+                            source: Theme.logoImage
                             sourceSize.width: 88
                             fillMode: Image.PreserveAspectFit
                         }
@@ -1265,6 +1403,14 @@ VPage {
                             }
                         }
                     }
+                }
+
+                // --- NVIDIA 组件 --------------------------------------------
+                DependencyGuide {
+                    id: secDeps
+                    objectName: "set-deps"
+                    Layout.fillWidth: true
+                    visible: root.section === "deps"
                 }
 
                 // --- 赞助作者 ------------------------------------------------

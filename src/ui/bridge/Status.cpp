@@ -60,7 +60,12 @@ QString QmlPlayerBridge::flowBackend() const {
     // name; report the fact we do have and let it read as unmeasured otherwise.
     const auto& s = impl_->snapshot;
     if (s.flowPerf == 0) return {};
-    return QStringLiteral("GPU 光流");
+    // Fork: name the optical flow in use instead of the generic Chinese label.
+    switch (settings().opticalFlowBackend) {
+    case engine::OpticalFlowBackend::Nvidia: return QStringLiteral("NVIDIA NVOF");
+    case engine::OpticalFlowBackend::AmdFidelityFx: return QStringLiteral("AMD FidelityFX");
+    default: return tr("GPU 光流");
+    }
 }
 
 int QmlPlayerBridge::opticalFlowChoice() const { return int(settings().opticalFlowBackend); }
@@ -277,6 +282,40 @@ bool QmlPlayerBridge::chainTotalMsKnown() const {
 // --- performance orbs and status light (#13) --------------------------------
 double QmlPlayerBridge::gpuUtilization() const { return std::max(0.0, impl_->gpuUtil.load()); }
 bool QmlPlayerBridge::gpuUtilizationKnown() const { return impl_->gpuUtil.load() >= 0.0; }
+QString QmlPlayerBridge::fgGpuName() const {
+    const QString wanted = impl_->prefString("fgGpu");
+    for (const auto& a : impl_->gpuAdapters) if (a.id == wanted) return a.name;
+    return tr("the second GPU");
+}
+// Plain-language state of the frame generation GPU choice for the settings rows.
+QString QmlPlayerBridge::fgGpuStatus() const {
+    const QString wanted = impl_->prefString("fgGpu");
+    if (wanted.isEmpty()) return tr("Frame generation runs on the super resolution GPU.");
+    bool present = false;
+    for (const auto& a : impl_->gpuAdapters) present = present || a.id == wanted;
+    if (!present) return tr("The saved frame generation GPU is not installed. Frame generation runs on the super resolution GPU.");
+    if (impl_->computeLuid && gfx::frameGenerationAdapterLuid() == impl_->computeLuid)
+        return tr("Same GPU as super resolution: no split.");
+    switch (gfx::frameGenerationSplitState()) {
+    case gfx::FgSplitState::Active:
+        return tr("Active: NVIDIA VFG runs on %1; the other GPU never waits for it.").arg(fgGpuName());
+    case gfx::FgSplitState::Fallback: {
+        const auto why = QString::fromStdString(gfx::frameGenerationSplitDetail());
+        return tr("Fell back to the super resolution GPU") + (why.isEmpty() ? QString() : QStringLiteral(": ") + why) + QStringLiteral(".");
+    }
+    default:
+        return tr("Ready: %1 takes over NVIDIA VFG when a source opens. Use Medium or Medium+Low quality, or turn on VFG auto regulation.").arg(fgGpuName());
+    }
+}
+QVariantList QmlPlayerBridge::gpuUsages() const {
+    QVariantList out;
+    std::lock_guard lock(impl_->gpuUtilsMutex);
+    for (const auto& a : impl_->gpuAdapters) {
+        const auto it = impl_->gpuUtils.find(uint64_t(a.luidHigh) << 32 | a.luidLow);
+        out << QVariantMap{{"name", a.name}, {"known", it != impl_->gpuUtils.end()}, {"value", it != impl_->gpuUtils.end() ? it->second : 0.0}};
+    }
+    return out;
+}
 QString QmlPlayerBridge::runStatus() const { return impl_->runStatus; }
 QString QmlPlayerBridge::runStatusLevel() const { return impl_->runLevel; }
 QString QmlPlayerBridge::runStatusDetail() const { return impl_->runDetail; }
@@ -307,6 +346,7 @@ void QmlPlayerBridge::startGpuSampler() {
             auto* items = reinterpret_cast<PDH_FMT_COUNTERVALUE_ITEM_W*>(buffer.data());
             if (PdhGetFormattedCounterArrayW(counter, PDH_FMT_DOUBLE, &bytes, &count, items) != ERROR_SUCCESS) continue;
             std::map<std::wstring, double> byType;
+            std::map<uint64_t, std::map<std::wstring, double>> byAdapter;
             // Instance names carry the adapter: pid_<n>_luid_0x<high>_0x<low>_phys_..._engtype_<type>.
             const uint64_t luid = impl->gpuMonitorLuid.load();
             const std::wstring luidKey = luid ? std::format(L"luid_0x{:08x}_0x{:08x}_", uint32_t(luid >> 32), uint32_t(luid)) : std::wstring{};
@@ -314,6 +354,12 @@ void QmlPlayerBridge::startGpuSampler() {
                 if (items[i].FmtValue.CStatus != PDH_CSTATUS_VALID_DATA && items[i].FmtValue.CStatus != PDH_CSTATUS_NEW_DATA) continue;
                 std::wstring name = items[i].szName ? items[i].szName : L"";
                 std::transform(name.begin(), name.end(), name.begin(), [](wchar_t ch) { return wchar_t(towlower(ch)); });
+                {
+                    const auto at = name.find(L"engtype_");
+                    unsigned high = 0, low = 0;
+                    if (const auto l = name.find(L"luid_0x"); l != std::wstring::npos && swscanf_s(name.c_str() + l, L"luid_0x%x_0x%x", &high, &low) == 2)
+                        byAdapter[uint64_t(high) << 32 | low][at == std::wstring::npos ? std::wstring{} : name.substr(at + 8)] += items[i].FmtValue.doubleValue;
+                }
                 if (!luidKey.empty() && name.find(luidKey) == std::wstring::npos) continue;
                 const auto at = name.find(L"engtype_");
                 byType[at == std::wstring::npos ? std::wstring{} : name.substr(at + 8)] += items[i].FmtValue.doubleValue;
@@ -321,6 +367,13 @@ void QmlPlayerBridge::startGpuSampler() {
             double busiest = 0;
             for (const auto& [type, value] : byType) busiest = std::max(busiest, value);
             impl->gpuUtil = std::clamp(busiest, 0.0, 100.0);
+            std::map<uint64_t, double> perAdapter;
+            for (const auto& [adapter, types] : byAdapter) {
+                double top = 0;
+                for (const auto& [type, value] : types) top = std::max(top, value);
+                perAdapter[adapter] = std::clamp(top, 0.0, 100.0);
+            }
+            { std::lock_guard lock(impl->gpuUtilsMutex); impl->gpuUtils = std::move(perAdapter); }
         }
         PdhCloseQuery(query);
     });
@@ -441,6 +494,7 @@ void QmlPlayerBridge::updateRunStatus() {
             case engine::FrameGenerationBackend::Fsr: backend = tr("FSR 3.1"); break;
             case engine::FrameGenerationBackend::Fsr4: backend = tr("FSR 4 ML"); break;
             case engine::FrameGenerationBackend::Anr: backend = QStringLiteral("ANR FG"); break;
+            case engine::FrameGenerationBackend::AmdFrc: backend = QStringLiteral("AMD FRC"); break;
             case engine::FrameGenerationBackend::Vfg: backend = QStringLiteral("NVIDIA VFG"); break;
             }
             detail << tr("补帧 %1X · %2").arg(s.applied.multiplier)
@@ -482,6 +536,12 @@ void QmlPlayerBridge::updateRunStatus() {
                 detail << tr("屏幕 %1 Hz 最多显示约 %2X").arg(refresh, 0, 'f', 0).arg(std::max(1, int(refresh / source)));
         }
         if (s.nominalSourceFps > 0.01) detail << tr("源 %1 fps").arg(s.nominalSourceFps, 0, 'f', 2);
+        // Fork: where frame generation actually runs.
+        if (s.fgActive || s.applied.frameGenerationBackend == engine::FrameGenerationBackend::Vfg) {
+            const auto split = gfx::frameGenerationSplitState();
+            if (split == gfx::FgSplitState::Active) detail << tr("FG on %1").arg(fgGpuName());
+            else if (split == gfx::FgSplitState::Fallback) detail << tr("FG on SR GPU (fallback)");
+        }
         if(active&&f.rateWindowReady&&rate.targetFps>0)detail<<tr("有效目标 %1 fps").arg(rate.targetFps,0,'f',1);
         const auto autoState=nrAutoStatus();if(!autoState.isEmpty())detail<<autoState;
     }
@@ -497,11 +557,14 @@ void QmlPlayerBridge::updateRunStatus() {
     } else if (!s.running && !i.frameTimes.empty()) i.frameTimes.clear();
     const QString text = detail.join(QStringLiteral(" · "));
     const double gpu = i.gpuUtil.load();
+    double gpuSum = 0;
+    { std::lock_guard lock(i.gpuUtilsMutex); for (const auto& [luid, value] : i.gpuUtils) gpuSum += value * double(luid % 7 + 1); }
+    const QString fgStatus = fgGpuStatus();
     const double target=active&&f.rateWindowReady&&rate.targetFps>0?rate.targetFps:-1;
-    const bool changed = ratioChanged || active || status != i.runStatus || level != i.runLevel || text != i.runDetail || options!=i.runOptions || std::abs(target-i.effectiveOutputFps)>.05 || std::abs(gpu - i.gpuPublished) > 0.05 ||
+    const bool changed = ratioChanged || active || status != i.runStatus || level != i.runLevel || text != i.runDetail || options!=i.runOptions || std::abs(target-i.effectiveOutputFps)>.05 || std::abs(gpu - i.gpuPublished) > 0.05 || std::abs(gpuSum - i.gpuSumPublished) > 0.05 || fgStatus != i.fgStatusPublished ||
                          fgHint != i.fgDisplayHint || vrrLevel != i.vrrState || displayChecking != i.displayChecking ||
                          hdr != i.displayHdr || std::abs(refreshHz - i.displayRefreshHz) > .01;
-    i.runStatus = status; i.runLevel = level; i.runDetail = text; i.gpuPublished = gpu;
+    i.runStatus = status; i.runLevel = level; i.runDetail = text; i.gpuPublished = gpu; i.gpuSumPublished = gpuSum; i.fgStatusPublished = fgStatus;
     i.runOptions=options;i.effectiveOutputFps=target;i.fgDisplayHint=fgHint;i.vrrState=vrrLevel;i.displayChecking=displayChecking;
     i.displayHdr=hdr;i.displayRefreshHz=refreshHz;
     if (changed) emit perfChanged();

@@ -38,6 +38,8 @@
 #include <QStandardPaths>
 
 #include <windows.h>
+#include <dwmapi.h>
+#pragma comment(lib, "dwmapi.lib")
 #include <shellapi.h>
 #include <shobjidl.h>
 #include <dbghelp.h>
@@ -61,12 +63,16 @@
 #include "veyra/ui/QmlDataDirectory.h"
 #include "veyra/ui/QmlDiskCache.h"
 #include "veyra/ui/QmlPlayerBridge.h"
+#include "veyra/ui/StartupMusic.h"
 #include "veyra/ui/ThumbnailProvider.h"
 
 using namespace veyra;
 
 namespace {
 HWND g_video = nullptr;
+// Fork: the main window, once it has the sizing frame that window managers such
+// as PowerToys FancyZones and Windows Snap look for (see allowTaskbarMinimise).
+HWND g_mainWindow = nullptr;
 bool g_videoCursorHidden = false;
 
 // The video is a foreign HWND, not a Qt item. Match the QML cursor policy here
@@ -660,6 +666,44 @@ static int runApplication(int argc, char** argv, QString& restartProgram, QStrin
                 if (result) *result = TRUE;
                 return true;
             }
+            // Fork: the main window carries WS_THICKFRAME so FancyZones and Windows
+            // Snap treat it as a normal resizable window. The frame is never drawn:
+            // the whole window stays client area, as it was when frameless. A
+            // maximised framed window hangs its border off the monitor, so its client
+            // area is pulled back to the work area.
+            if (msg->message == WM_NCCALCSIZE && g_mainWindow && msg->hwnd == g_mainWindow
+                && (GetWindowLongPtrW(msg->hwnd, GWL_STYLE) & WS_THICKFRAME) != 0) {
+                if (msg->wParam == TRUE && IsZoomed(msg->hwnd)) {
+                    auto* params = reinterpret_cast<NCCALCSIZE_PARAMS*>(msg->lParam);
+                    MONITORINFO monitor{};
+                    monitor.cbSize = sizeof(monitor);
+                    if (GetMonitorInfoW(MonitorFromWindow(msg->hwnd, MONITOR_DEFAULTTONEAREST), &monitor)) {
+                        RECT& client = params->rgrc[0];
+                        client.left = std::max(client.left, monitor.rcWork.left);
+                        client.top = std::max(client.top, monitor.rcWork.top);
+                        client.right = std::min(client.right, monitor.rcWork.right);
+                        client.bottom = std::min(client.bottom, monitor.rcWork.bottom);
+                    }
+                }
+                if (result) *result = 0;
+                return true;
+            }
+            // Fork: with a sizing frame, Windows repaints the classic frame on
+            // activation (WM_NCACTIVATE) and on WM_NCPAINT, straight over the edge
+            // of the picture: the light border seen after the FancyZones change.
+            // There is no non-client area to paint, so neither paints anything.
+            if (g_mainWindow && msg->hwnd == g_mainWindow
+                && (GetWindowLongPtrW(msg->hwnd, GWL_STYLE) & WS_THICKFRAME) != 0) {
+                if (msg->message == WM_NCACTIVATE) {
+                    // lParam -1: update the active state without redrawing the frame.
+                    if (result) *result = DefWindowProcW(msg->hwnd, WM_NCACTIVATE, msg->wParam, -1);
+                    return true;
+                }
+                if (msg->message == WM_NCPAINT) {
+                    if (result) *result = 0;
+                    return true;
+                }
+            }
             if (msg->message != WM_SYSCOMMAND || (msg->wParam & 0xFFF0) != SC_KEYMENU) return false;
             veyra::log::info("ui-window", std::format("system key menu refused (lParam=0x{:X})", unsigned(msg->lParam)));
             if (result) *result = 0;
@@ -748,6 +792,14 @@ static int runApplication(int argc, char** argv, QString& restartProgram, QStrin
             outcome.toStdString(), cache.digest.isEmpty() ? "none" : cache.digest.toStdString(), cache.files, cache.bytes, ms));
     }
 
+    // The 日落 startup music (StartupMusic.h): the user's file next to the program, if any.
+    // Declared before the engine, so it outlives every QML reference to it.
+    ui::StartupMusic startupMusic(QCoreApplication::applicationDirPath() + QStringLiteral("/media/startup-music.mp3"));
+    QObject::connect(&bridge, &ui::QmlPlayerBridge::mediaOpenRequested, &startupMusic, &ui::StartupMusic::pause);
+    QObject::connect(&bridge, &ui::QmlPlayerBridge::preferencesChanged, &startupMusic, [&] {
+        if (bridge.preferences().value(QStringLiteral("introMusic")).isValid()
+            && !bridge.preferences().value(QStringLiteral("introMusic")).toBool()) startupMusic.pause();
+    });
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("vySoftwareUi"), softwareUi);
     auto* thumbnails = new ui::ThumbnailProvider;
@@ -756,6 +808,7 @@ static int runApplication(int argc, char** argv, QString& restartProgram, QStrin
                      [thumbnails](const QString& path) { thumbnails->setSource(path); });
     engine.addImportPath(QCoreApplication::applicationDirPath() + "/qml");
     engine.rootContext()->setContextProperty(QStringLiteral("veyra"), &bridge);
+    engine.rootContext()->setContextProperty(QStringLiteral("vyMusic"), &startupMusic);
     bridge.setQmlEngine(&engine);   // Qt.uiLanguage drives the per-language font (Theme.qml)
 
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,
@@ -797,6 +850,9 @@ static int runApplication(int argc, char** argv, QString& restartProgram, QStrin
         const bool hasValue = i + 1 < args.size();
         if (a == QLatin1String("--page") && hasValue) {
             bridge.setInitialPage(args.at(++i));
+        } else if ((a == QLatin1String("--theme") || a == QLatin1String("--settings-section")) && hasValue) {
+            // Fork test switches: preview a theme / open a settings section without saving.
+            testOptions.insert(a == QLatin1String("--theme") ? QStringLiteral("theme") : QStringLiteral("settingsSection"), args.at(++i));
         } else if (a == QLatin1String("--tab") && hasValue) {
             testOptions.insert(QStringLiteral("tab"), args.at(++i));
         } else if (a == QLatin1String("--dialog") && hasValue) {
@@ -902,13 +958,33 @@ static int runApplication(int argc, char** argv, QString& restartProgram, QStrin
     // Qt's frameless window is a bare WS_POPUP, so the click did nothing (field report).
     // The two bits add no frame or caption. Qt may rebuild the style on a fullscreen
     // switch, so it is put back on every visibility change.
+    // Fork: windowed and maximised, the window also gets a sizing frame and a
+    // maximise box. PowerToys FancyZones skips popup windows unless they have
+    // WS_THICKFRAME, WS_MINIMIZEBOX and WS_MAXIMIZEBOX, so a frameless Veyra could
+    // not be dropped into a zone. The frame adds no visible border (WM_NCCALCSIZE
+    // above keeps the whole window as client area). Fullscreen keeps the bare
+    // popup style, as before, so the fullscreen presentation path is unchanged.
+    g_mainWindow = reinterpret_cast<HWND>(window->winId());
     const auto allowTaskbarMinimise = [window] {
         const HWND hwnd = reinterpret_cast<HWND>(window->winId());
+        g_mainWindow = hwnd;
         const LONG_PTR style = GetWindowLongPtrW(hwnd, GWL_STYLE);
-        const LONG_PTR wanted = style | WS_MINIMIZEBOX | WS_SYSMENU;
+        const bool fullscreen = window->visibility() == QWindow::FullScreen;
+        LONG_PTR wanted = style | WS_MINIMIZEBOX | WS_SYSMENU;
+        if (fullscreen) wanted &= ~LONG_PTR(WS_THICKFRAME | WS_MAXIMIZEBOX);
+        else wanted |= WS_THICKFRAME | WS_MAXIMIZEBOX;
+        // Fork: no Windows 11 accent outline or rounded corners for the sizing
+        // frame: the window keeps the square, borderless look it had before.
+        // (Both attributes are ignored on Windows 10.)
+        const COLORREF noBorder = 0xFFFFFFFE; // DWMWA_COLOR_NONE
+        DwmSetWindowAttribute(hwnd, 34 /* DWMWA_BORDER_COLOR */, &noBorder, sizeof(noBorder));
+        const DWORD squareCorners = 1; // DWMWCP_DONOTROUND
+        DwmSetWindowAttribute(hwnd, 33 /* DWMWA_WINDOW_CORNER_PREFERENCE */, &squareCorners, sizeof(squareCorners));
         if (wanted == style) return;
         SetWindowLongPtrW(hwnd, GWL_STYLE, wanted);
-        veyra::log::info("qml-window", std::format("taskbar minimise enabled style=0x{:X}", static_cast<unsigned long long>(wanted)));
+        // Recompute the (empty) non-client area for the new style.
+        SetWindowPos(hwnd, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+        veyra::log::info("qml-window", std::format("window style 0x{:X} (snap frame {})", static_cast<unsigned long long>(wanted), !fullscreen));
     };
     allowTaskbarMinimise();
     QObject::connect(window, &QWindow::visibilityChanged, &app, [allowTaskbarMinimise](QWindow::Visibility) { allowTaskbarMinimise(); });

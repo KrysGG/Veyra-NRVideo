@@ -107,6 +107,10 @@ class QmlPlayerBridge : public QObject {
     // The loaded runtime components, as the engine reports them. A hand-written
     // list here could drift from what the package actually contains.
     Q_PROPERTY(QVariantList componentList READ componentList NOTIFY componentListChanged)
+    // Settings → NVIDIA 组件: the user-downloaded DLSS / ANR files, where each goes and
+    // whether it is there. Rescanned with the effect capabilities (every 2 s).
+    Q_PROPERTY(QVariantList nvidiaDependencies READ nvidiaDependencies NOTIFY effectCapabilitiesChanged)
+    Q_PROPERTY(bool nvidiaDependenciesMissing READ nvidiaDependenciesMissing NOTIFY effectCapabilitiesChanged)
     Q_PROPERTY(QObject* updates READ updates CONSTANT)
 
     // --- capture dialog ----------------------------------------------------
@@ -421,6 +425,7 @@ class QmlPlayerBridge : public QObject {
     Q_PROPERTY(int srOutput READ srOutput WRITE setSrOutput NOTIFY settingsChanged)
     Q_PROPERTY(bool protectionEnabled READ protectionEnabled WRITE setProtectionEnabled NOTIFY settingsChanged)
     Q_PROPERTY(QVariantMap protectionState READ protectionState NOTIFY protectionChanged)
+    Q_PROPERTY(bool exclusionOverlayVisible READ exclusionOverlayVisible WRITE setExclusionOverlayVisible NOTIFY protectionChanged)
     Q_PROPERTY(QVariantMap exclusionState READ exclusionState NOTIFY protectionChanged)
     Q_PROPERTY(QVariantMap nrStabilizerState READ nrStabilizerState NOTIFY nrStabilizerChanged)
     Q_PROPERTY(bool colorEnabled READ colorEnabled WRITE setColorEnabled NOTIFY settingsChanged)
@@ -432,6 +437,8 @@ class QmlPlayerBridge : public QObject {
     // Performance orbs and the status light (1.4.4 live status dashboard).
     Q_PROPERTY(double gpuUtilization READ gpuUtilization NOTIFY perfChanged)
     Q_PROPERTY(bool gpuUtilizationKnown READ gpuUtilizationKnown NOTIFY perfChanged)
+    Q_PROPERTY(QVariantList gpuUsages READ gpuUsages NOTIFY perfChanged)
+    Q_PROPERTY(QString fgGpuStatus READ fgGpuStatus NOTIFY perfChanged)
     Q_PROPERTY(QString runStatus READ runStatus NOTIFY perfChanged)
     Q_PROPERTY(QString runStatusLevel READ runStatusLevel NOTIFY perfChanged)
     Q_PROPERTY(QString runStatusDetail READ runStatusDetail NOTIFY perfChanged)
@@ -470,6 +477,8 @@ class QmlPlayerBridge : public QObject {
     // (switch greyed), 2 it can but the driver setting is off, 3 possible,
     // 4 active; vrrHint explains it beside the switch.
     Q_PROPERTY(bool variableRefresh READ variableRefresh WRITE setVariableRefresh NOTIFY presentationChanged)
+    // Explicit per-application driver setup, independent of the presentation switch.
+    Q_PROPERTY(QObject* nvidiaVrrProfile READ nvidiaVrrProfile CONSTANT)
     Q_PROPERTY(int vrrState READ vrrState NOTIFY perfChanged)
     Q_PROPERTY(QString vrrHint READ vrrHint NOTIFY perfChanged)
     // Display state of the shown monitor for the 信号 card: Windows HDR (-1
@@ -721,6 +730,8 @@ public:
     QString remotePlayState() const;
     QVariantList componentList() const;
     QVariantList readComponentList() const;
+    QVariantList nvidiaDependencies() const;
+    bool nvidiaDependenciesMissing() const;
     QVariantList captureDevices() const;
     QString captureDeviceId() const;
     void setCaptureDeviceId(const QString& value);
@@ -1096,6 +1107,12 @@ public:
     QVariantMap protectionState() const;
     QVariantMap exclusionState() const;
     QVariantMap nrStabilizerState() const;
+    bool exclusionOverlayVisible() const;
+    void setExclusionOverlayVisible(bool visible);
+    Q_INVOKABLE void selectExclusionRegion(int index);
+    Q_INVOKABLE bool beginExclusionMove(double x,double y);
+    Q_INVOKABLE void updateExclusionMove(double x,double y);
+    Q_INVOKABLE bool endExclusionMove(bool commit);
     Q_INVOKABLE bool beginMaskDraw(bool allEffects,const QString& shape);
     Q_INVOKABLE bool setMaskEnabled(bool allEffects,bool enabled);
     Q_INVOKABLE bool setMaskFeather(bool allEffects,double pixels);
@@ -1113,6 +1130,9 @@ public:
     double audioCompensationMs() const;
     double gpuUtilization() const;
     bool gpuUtilizationKnown() const;
+    QVariantList gpuUsages() const;
+    QString fgGpuStatus() const;
+    QString fgGpuName() const;
     QString runStatus() const;
     QString runStatusLevel() const;
     QString runStatusDetail() const;
@@ -1145,6 +1165,7 @@ public:
     int displaySync() const;
     void setDisplaySync(int value);
     bool variableRefresh() const;
+    QObject* nvidiaVrrProfile() const { return nvidiaVrrProfile_; }
     void setVariableRefresh(bool value);
     int vrrState() const;
     QString vrrHint() const;
@@ -1431,6 +1452,12 @@ public:
     Q_INVOKABLE bool renamePreset(int index, const QString& name);
     Q_INVOKABLE bool duplicatePreset(int index);
     Q_INVOKABLE bool setDefaultPreset(int index);
+private:
+    // Fork: GPU and display choices saved beside each preset (bridge/Chain.cpp).
+    void rememberPresetHardware(const QString& name);
+    void forgetPresetHardware(const QString& name, const QString& renamedTo = QString());
+    void applyPresetHardware(const QString& name);
+public:
 
     Q_INVOKABLE void refreshRecentFiles();
     Q_INVOKABLE void clearRecentFiles();
@@ -1443,8 +1470,16 @@ public:
     Q_INVOKABLE void copyDiagnostics();
     // Re-reads the runtime manifest (Settings → 组件与许可 calls it when shown).
     Q_INVOKABLE void refreshComponentList();
+    // Settings → NVIDIA 组件 (src/ui/bridge/Dependencies.cpp). The id is one of
+    // nvidiaDependencies' ids; the publisher's page opens in the browser, the
+    // target folder (created if missing) in Explorer.
+    Q_INVOKABLE void refreshNvidiaDependencies();
+    Q_INVOKABLE void openDependencyDownload(const QString& id);
+    Q_INVOKABLE void openDependencyFolder(const QString& id);
+    Q_INVOKABLE void openDownloadsFolder();
 
 signals:
+    void mediaOpenRequested(); // Synchronous intent, before opening or waiting for success.
     void playlistRequested();
     void nodeAnchorsChanged();
     void ps5Changed();
@@ -1540,6 +1575,7 @@ private:
     void openAfterCinema(const QString& pending, std::function<void()> open);
     void rememberSource(const QString& kind, const QString& label);
     // Edits either mask node in the active chain; rolls back when refused.
+    void updateMaskOverlay();
     QVariantMap maskState(bool allEffects) const;
     bool editProtection(const std::function<bool(engine::ChainNode&)>& edit,bool allEffects=false);
     engine::ColorSettings selectedColourSettings() const;
@@ -1578,6 +1614,7 @@ private:
 
     struct Impl;
     std::unique_ptr<Impl> impl_;
+    QObject* nvidiaVrrProfile_ = nullptr;
     QObject* updates_ = nullptr;
 };
 
