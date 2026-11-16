@@ -1,6 +1,7 @@
 // QML bridge: Preferences responsibilities.
 #include "../QmlPlayerBridge_p.h"
 #include "veyra/ngx/AnrProvider.h"
+#include "veyra/gfx/AmfFrcBackend.h"
 
 namespace veyra::ui {
 // --- shell preferences -------------------------------------------------------
@@ -80,6 +81,10 @@ QVariantList QmlPlayerBridge::readComponentList() const {
     const auto anrDirectory=ngx::AnrProvider::directory(runtime::localRuntimeDirectory().wstring());
     out<<QVariantMap{{"name",QStringLiteral("ANR FG")},{"detail",QString::fromStdWString(anrDirectory)},
         {"loaded",ngx::AnrProvider::available(runtime::localRuntimeDirectory().wstring())},{"experimental",true}};
+    // AMD FRC: the AMF runtime of the AMD driver, never shipped with Veyra.
+    wchar_t systemDirectory[MAX_PATH]{};GetSystemDirectoryW(systemDirectory,MAX_PATH);
+    out<<QVariantMap{{"name",QStringLiteral("AMD FRC (AMF)")},{"detail",QString::fromWCharArray(systemDirectory)+QStringLiteral("\\amfrt64.dll")},
+        {"loaded",gfx::AmfFrcBackend::runtimeInstalled()}};
     const auto vfgDirectory=pipeline::VfgBackend::runtimeDirectory(runtime::localRuntimeDirectory().wstring());
     const bool vfgAvailable=pipeline::VfgBackend::runtimeAvailable(runtime::localRuntimeDirectory().wstring());
     out<<QVariantMap{{"name",QStringLiteral("NVIDIA VFG")},{"detail",QString::fromStdWString(vfgDirectory)},
@@ -199,8 +204,12 @@ bool QmlPlayerBridge::setPreference(const QString& key, const QVariant& value) {
         // Instant replay (#103): seconds the buffer keeps.
         {"replaySeconds", {15, 600}}};
     static const QStringList flags{"recordHevc", "recordAudio", "recordMic", "recordMicTrack", "replayEnabled", "subtitleEnabled", "subtitleBackground", "subtitleFit",
-                                   "subtitleSecondLanguage", "audioForceStereo", "holdCompare",
+                                   "subtitleSecondLanguage", "audioForceStereo", "captureAudioMonitor", "holdCompare",
                                    "magewellLowLatency", "blackmagicNativeCapture", "captureShowAllFrameRates", "cinePillHidden", "exportStopsPlayback", "obsGameCapture", "autoResume", "fullscreenMemoryProtection", "prewarmEnhancement", "hdrFgCompatibility", "computeOnMonitorGpu", "deinterlace", "networkAutoReconnect",
+                                   // 设置 → 外观 → 启动动画 (the dusk palette's intro, DuskIntro.qml); unset = on.
+                                   "introAnimation",
+                                   // 设置 → 外观 → 启动音乐 and the music button (Main.qml); unset = on.
+                                   "introMusic", "exclusionOverlay",
                                    // Fork: list-view panel collapsed to a rail, descriptions shown under
                                    // every setting, and the tuning guide under GPU stages opened.
                                    "listInspectorCollapsed", "showHints", "stageGuideOpen", "listMetersCollapsed"};
@@ -256,6 +265,11 @@ bool QmlPlayerBridge::setPreference(const QString& key, const QVariant& value) {
     } else if (key == QLatin1String("theme")) {
         const QString v = value.toString();
         if (v != QLatin1String("default") && v != QLatin1String("vice")) return false;
+        stored = v;
+    } else if (key == QLatin1String("palette")) {
+        // 设置 → 外观 → 界面配色 (Theme.qml): 日落 or the original 经典 palette.
+        const QString v = value.toString();
+        if (v != QLatin1String("dusk") && v != QLatin1String("classic")) return false;
         stored = v;
     } else if (key == QLatin1String("accent")) {
         const QString v = value.toString();
@@ -331,6 +345,8 @@ bool QmlPlayerBridge::setPreference(const QString& key, const QVariant& value) {
     return true;
 }
 void QmlPlayerBridge::applyPreference(const QString& key) {
+    if(key==QLatin1String("captureAudioMonitor"))
+        impl_->engine.setCaptureAudioMonitoring(impl_->prefBool("captureAudioMonitor",true));
     // The replay buffer re-arms with what a recording would use.
     static const QStringList replayKeys{"replayEnabled", "replaySeconds", "recordBitrateMbps", "recordFps", "recordHevc",
                                         "recordAudio", "recordMic", "recordMicDevice", "recordMicTrack"};
