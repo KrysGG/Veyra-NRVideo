@@ -43,7 +43,8 @@ void QmlPlayerBridge::setCaptureDeviceId(const QString& value) {
     // is the remembered device.
     impl_->captureColor = impl_->capturePrefs.colorForDevice(impl_->captureDevice);
     if(impl_->captureDevice==impl_->capturePrefs.videoPath)impl_->restoreCaptureForm();
-    else {impl_->captureAudioChoice=source::kCaptureAudioDisabled;impl_->captureAudioMissing=false;}
+    // Fork: otherwise the audio last used with this device, if any.
+    else if(!impl_->restoreCaptureAudioFor(impl_->captureDevice)){impl_->captureAudioChoice=source::kCaptureAudioDisabled;impl_->captureAudioMissing=false;}
     if(!impl_->persistCaptureSelection())emit notice(tr("采集设置保存失败，请检查配置目录是否可写"),true);
     if (!impl_->captureDevice.empty()) queryCapture(1, impl_->captureDevice);
     emit captureChanged();
