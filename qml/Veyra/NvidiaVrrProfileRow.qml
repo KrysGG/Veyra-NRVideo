@@ -8,6 +8,8 @@ VRow {
     visible: backend !== null
     label: qsTr("NVIDIA G-SYNC 配置")
     hintBelow: true
+    // The hint is the Check/Repair result: never fold it behind the fork's compact-hints "i" button.
+    hintAlways: true
     hint: backend ? backend.summary + "\n" + backend.detail : ""
     Flow {
         id: actions
