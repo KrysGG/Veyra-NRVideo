@@ -26,7 +26,7 @@ VPage {
         // render(true): 480 ms, i*40 ms, y 12).
         Qt.callLater(() => stagger(sectionColumns[section] || null))
     }
-    readonly property var sectionColumns: ({ look: secLook, window: secWindow, play: secPlay, audio: secAudio, perf: secPerf, compat: secCompat, ps5: secPs5, keys: secKeys, comp: secComp, about: secAbout, sponsor: secSponsor })
+    readonly property var sectionColumns: ({ look: secLook, window: secWindow, play: secPlay, audio: secAudio, perf: secPerf, compat: secCompat, deps: secDeps, ps5: secPs5, keys: secKeys, comp: secComp, about: secAbout, sponsor: secSponsor })
     Component { id: staggerComp; VRise.Stagger {} }
     function stagger(col) {
         if (Theme.reduced || !col) return
@@ -47,6 +47,8 @@ VPage {
         { id: "audio",  label: qsTr("音频"), icon: "vol" },
         { id: "perf",   label: qsTr("性能"), icon: "gauge" },
         { id: "compat", label: qsTr("兼容"), icon: "monitor" },
+        // Yellow while a DLSS file this card could use is missing.
+        { id: "deps",  label: qsTr("NVIDIA 组件"), icon: "layers", tint: veyra.nvidiaDependenciesMissing ? Theme.warn : undefined },
         { id: "ps5",   label: qsTr("PS5 串流"), icon: "gamepad" },
         { id: "keys",  label: qsTr("快捷键"), icon: "zap" },
         { id: "comp",  label: qsTr("组件与许可"), icon: "box" },
@@ -1401,6 +1403,14 @@ VPage {
                             }
                         }
                     }
+                }
+
+                // --- NVIDIA 组件 --------------------------------------------
+                DependencyGuide {
+                    id: secDeps
+                    objectName: "set-deps"
+                    Layout.fillWidth: true
+                    visible: root.section === "deps"
                 }
 
                 // --- 赞助作者 ------------------------------------------------

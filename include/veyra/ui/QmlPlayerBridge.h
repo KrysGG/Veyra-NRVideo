@@ -107,6 +107,10 @@ class QmlPlayerBridge : public QObject {
     // The loaded runtime components, as the engine reports them. A hand-written
     // list here could drift from what the package actually contains.
     Q_PROPERTY(QVariantList componentList READ componentList NOTIFY componentListChanged)
+    // Settings → NVIDIA 组件: the user-downloaded DLSS / ANR files, where each goes and
+    // whether it is there. Rescanned with the effect capabilities (every 2 s).
+    Q_PROPERTY(QVariantList nvidiaDependencies READ nvidiaDependencies NOTIFY effectCapabilitiesChanged)
+    Q_PROPERTY(bool nvidiaDependenciesMissing READ nvidiaDependenciesMissing NOTIFY effectCapabilitiesChanged)
     Q_PROPERTY(QObject* updates READ updates CONSTANT)
 
     // --- capture dialog ----------------------------------------------------
@@ -726,6 +730,8 @@ public:
     QString remotePlayState() const;
     QVariantList componentList() const;
     QVariantList readComponentList() const;
+    QVariantList nvidiaDependencies() const;
+    bool nvidiaDependenciesMissing() const;
     QVariantList captureDevices() const;
     QString captureDeviceId() const;
     void setCaptureDeviceId(const QString& value);
@@ -1464,6 +1470,13 @@ public:
     Q_INVOKABLE void copyDiagnostics();
     // Re-reads the runtime manifest (Settings → 组件与许可 calls it when shown).
     Q_INVOKABLE void refreshComponentList();
+    // Settings → NVIDIA 组件 (src/ui/bridge/Dependencies.cpp). The id is one of
+    // nvidiaDependencies' ids; the publisher's page opens in the browser, the
+    // target folder (created if missing) in Explorer.
+    Q_INVOKABLE void refreshNvidiaDependencies();
+    Q_INVOKABLE void openDependencyDownload(const QString& id);
+    Q_INVOKABLE void openDependencyFolder(const QString& id);
+    Q_INVOKABLE void openDownloadsFolder();
 
 signals:
     void mediaOpenRequested(); // Synchronous intent, before opening or waiting for success.

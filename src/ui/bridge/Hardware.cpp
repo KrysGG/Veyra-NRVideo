@@ -117,6 +117,14 @@ static QVariantMap scanEffectCapabilities() {
     add("hdr", H::Nvidia, exists(nr / "nvngx_truehdr.dll"), QObject::tr("需要 NVIDIA RTX 显卡"));
     add("flow0", H::Nvidia, true, QObject::tr("需要 NVIDIA RTX 显卡及 NVOF 驱动"));
     add("flow1", H::CrossVendor, true, QObject::tr("需要支持 DirectX 12 的硬件显卡"));
+    // DLSS SR / DLSS FG / ANR files are downloaded by the user: name where the guide
+    // is instead of only saying the package lacks them (Settings → NVIDIA 组件).
+    for (const char* id : {"sr0", "dlss", "anr"}) {
+        auto cap = out.value(id).toMap();
+        if (cap.value("available").toBool() || cap.value("reason").toString() != QObject::tr("当前包缺少此功能的运行组件")) continue;
+        cap["reason"] = QObject::tr("缺少运行组件，请到 设置 › NVIDIA 组件 查看安装指南");
+        out[id] = cap;
+    }
     return out;
 }
 // All callers are on the bridge/UI thread. Snapshot reads must not perform
