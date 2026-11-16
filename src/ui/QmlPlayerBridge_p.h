@@ -683,8 +683,27 @@ struct QmlPlayerBridge::Impl {
                 }
         }
     }
+    // Fork: the last format used on each capture device, so trying another device
+    // (a virtual camera, say) and coming back does not lose the card's format.
+    std::wstring rememberedCaptureFormat(const std::wstring& device) const {
+        if(device.empty())return {};
+        if(device==capturePrefs.videoPath&&!capturePrefs.formatKey.empty())return capturePrefs.formatKey;
+        const auto byDevice=prefs.value(QStringLiteral("captureFormatByDevice")).toMap();
+        return byDevice.value(QString::fromStdWString(device)).toString().toStdWString();
+    }
+    void rememberCaptureFormat() {
+        if(captureDevice.empty()||captureFormatKey.empty())return;
+        auto byDevice=prefs.value(QStringLiteral("captureFormatByDevice")).toMap();
+        const auto device=QString::fromStdWString(captureDevice),key=QString::fromStdWString(captureFormatKey);
+        if(byDevice.value(device).toString()==key)return;
+        if(byDevice.size()>=32&&!byDevice.contains(device))byDevice.erase(byDevice.begin());
+        byDevice[device]=key;
+        prefs[QStringLiteral("captureFormatByDevice")]=byDevice;
+        savePrefs();
+    }
     bool persistCaptureSelection(bool explicitFormat = false) {
         if(captureDevice.empty())return true; // Disconnecting a card must retain it.
+        rememberCaptureFormat();
         const bool sameDevice=capturePrefs.videoPath==captureDevice;
         capturePrefs.videoPath=captureDevice;
         // An unavailable saved type has no active selection. Editing another

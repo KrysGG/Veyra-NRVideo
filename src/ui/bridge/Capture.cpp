@@ -36,7 +36,8 @@ void QmlPlayerBridge::setCaptureDeviceId(const QString& value) {
     impl_->captureFormatList.clear();++impl_->captureFormatGeneration;
     impl_->captureResolutionChoice.clear();impl_->captureRateChoice.clear();
     impl_->captureRequestedResolution.clear();
-    impl_->captureFormatKey=impl_->captureDevice==impl_->capturePrefs.videoPath?impl_->capturePrefs.formatKey:std::wstring{};
+    // Fork: also the format last used on this device when another one was picked in between.
+    impl_->captureFormatKey=impl_->rememberedCaptureFormat(impl_->captureDevice);
     impl_->captureDriverFormatKey.clear();
     // Colour follows the device, as in 1.4.4; audio returns to "none" unless it
     // is the remembered device.
@@ -411,13 +412,15 @@ void QmlPlayerBridge::tickCapture() {
     i.captureFormatList = std::move(q.formats);
     ++i.captureFormatGeneration;
     const bool remembered = i.captureDevice == i.capturePrefs.videoPath;
+    // Fork: the saved format for this device, even if another device was picked in between.
+    const std::wstring rememberedKey = i.rememberedCaptureFormat(i.captureDevice);
     const std::wstring driverSelection = i.captureDriverFormatKey.empty() ? i.captureFormatKey : i.captureDriverFormatKey;
     if (q.kind == 3) i.captureDriverFormatKey.clear();
     i.captureFormatKey.clear();
     if (q.kind == 3 && !driverSelection.empty()) {
         if (const auto* f = source::selectCaptureFormat(i.captureFormatList, -1, driverSelection)) i.captureFormatKey = f->key;
-    } else if (remembered && !i.capturePrefs.formatKey.empty()) {
-        if (const auto* f = source::selectCaptureFormat(i.captureFormatList, -1, i.capturePrefs.formatKey)) i.captureFormatKey = f->key;
+    } else if (!rememberedKey.empty()) {
+        if (const auto* f = source::selectCaptureFormat(i.captureFormatList, -1, rememberedKey)) i.captureFormatKey = f->key;
     }
     i.captureResolutionChoice.clear();i.captureRateChoice.clear();
     if(const auto* f=selectedCaptureFormat(i.captureFormatList,i.captureFormatKey)){
