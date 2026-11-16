@@ -706,9 +706,41 @@ struct QmlPlayerBridge::Impl {
         prefs[QStringLiteral("captureFormatByDevice")]=byDevice;
         savePrefs();
     }
+    // Fork: the audio input chosen for each capture device, by endpoint path and
+    // mode (list indices move when devices come and go). Switching to another
+    // device and back used to leave the card with no audio (field report 2026-11-16).
+    void rememberCaptureAudio() {
+        if(captureDevice.empty()||captureAudioMissing)return;
+        const auto* audio=captureAudioChoice>=0&&size_t(captureAudioChoice)<captureAudio.size()?&captureAudio[size_t(captureAudioChoice)]:nullptr;
+        const QVariantMap entry{{QStringLiteral("path"),QString::fromStdWString(audio?audio->path:std::wstring{})},
+                                {QStringLiteral("mode"),audio?audio->audioMode():captureAudioChoice}};
+        auto byDevice=prefs.value(QStringLiteral("captureAudioByDevice")).toMap();
+        const auto device=QString::fromStdWString(captureDevice);
+        if(byDevice.value(device).toMap()==entry)return;
+        if(byDevice.size()>=32&&!byDevice.contains(device))byDevice.erase(byDevice.begin());
+        byDevice[device]=entry;
+        prefs[QStringLiteral("captureAudioByDevice")]=byDevice;
+        savePrefs();
+    }
+    // Returns false when nothing was remembered for this device.
+    bool restoreCaptureAudioFor(const std::wstring& device) {
+        const auto byDevice=prefs.value(QStringLiteral("captureAudioByDevice")).toMap();
+        const auto key=QString::fromStdWString(device);
+        if(device.empty()||!byDevice.contains(key))return false;
+        const auto entry=byDevice.value(key).toMap();
+        const int mode=entry.value(QStringLiteral("mode")).toInt();
+        const auto path=entry.value(QStringLiteral("path")).toString().toStdWString();
+        captureAudioChoice=source::kCaptureAudioDisabled;captureAudioMissing=false;
+        if(mode==source::kCaptureAudioFromVideoDevice){captureAudioChoice=source::kCaptureAudioFromVideoDevice;return true;}
+        if(path.empty())return true;
+        for(size_t k=0;k<captureAudio.size();++k)
+            if(captureAudio[k].path==path&&captureAudio[k].audioMode()==mode){captureAudioChoice=int(k);return true;}
+        return true; // Not connected now: start without sound rather than block.
+    }
     bool persistCaptureSelection(bool explicitFormat = false) {
         if(captureDevice.empty())return true; // Disconnecting a card must retain it.
         rememberCaptureFormat();
+        rememberCaptureAudio();
         const bool sameDevice=capturePrefs.videoPath==captureDevice;
         capturePrefs.videoPath=captureDevice;
         // An unavailable saved type has no active selection. Editing another
