@@ -86,6 +86,7 @@ void QmlPlayerBridge::setupXbox() {
         auto& j = *impl_;
         if (!j.videoWindow) return false;
         rememberPosition(true);
+        emit mediaOpenRequested();
         j.openingSource = true;
         j.openingSessionId = 0;
         j.sourceLabel = L"Xbox · " + launch.label.toStdWString();
@@ -94,7 +95,7 @@ void QmlPlayerBridge::setupXbox() {
         const bool pad = launch.desc.gamepad;
         const QString label = launch.label;
         auto request = std::make_shared<source::XboxConnectDesc>(std::move(launch.desc));
-        openAfterCinema(tr("正在连接 Xbox · %1").arg(label), [this, request, pad] {
+        openAfterLivePage(tr("正在连接 Xbox · %1").arg(label), [this, request, pad] {
             auto& k = *impl_;
             if (k.preOpen) k.preOpen();
             k.engine.previewView({});
@@ -189,6 +190,7 @@ void QmlPlayerBridge::setupMoonlight() {
         auto& j = *impl_;
         if (!j.videoWindow) return false;
         rememberPosition(true);
+        emit mediaOpenRequested();
         j.openingSource = true;
         j.openingSessionId = 0;
         j.sourceLabel = L"PC · " + launch.label.toStdWString();
@@ -198,7 +200,7 @@ void QmlPlayerBridge::setupMoonlight() {
         j.moonlightWantCapture = launch.captureInput;
         const QString label = launch.label;
         auto request = std::make_shared<source::MoonlightConnectDesc>(std::move(launch.desc));
-        openAfterCinema(tr("正在连接 %1").arg(label), [this, request, pad] {
+        openAfterLivePage(tr("正在连接 %1").arg(label), [this, request, pad] {
             auto& k = *impl_;
             if (k.preOpen) k.preOpen();
             k.engine.previewView({});
@@ -441,9 +443,10 @@ bool QmlPlayerBridge::ps5Connect() {
     rememberPosition(true);
     // The session id is cleared with the flag: the previous session's id left over here
     // ended "opening" on the next snapshot while the old source still ran.
+    emit mediaOpenRequested();
     i.openingSource = true; i.openingSessionId = 0; i.sourceLabel = L"PS5 · " + std::wstring(host.begin(), host.end()); i.resumeSession = 0; i.screenFillActive = false;
     auto request = std::make_shared<source::RemotePlayConnectDesc>(std::move(desc));
-    openAfterCinema(tr("正在连接 PS5 · %1").arg(QString::fromStdString(host)), [this, request, viewOnly] {
+    openAfterLivePage(tr("正在连接 PS5 · %1").arg(QString::fromStdString(host)), [this, request, viewOnly] {
         auto& i = *impl_;
         if (i.preOpen) i.preOpen();
         i.engine.previewView({});

@@ -6,6 +6,7 @@
 #include "veyra/gfx/PresentSink.h"
 #include "veyra/gfx/NvidiaVrr.h"
 #include "veyra/media/NetworkInput.h"
+#include "veyra/media/FormatBadgeWindow.h"
 #include "veyra/ngx/DlssgLite.h"
 #include "veyra/RuntimePaths.h"
 #include "veyra/ui/GamePassthrough.h"
@@ -208,6 +209,10 @@ struct QmlPlayerBridge::Impl {
     engine::EngineController& engine;
     PlayerUiFacade facade;
 
+    // Announce the format when a new source first delivers a picture.
+    std::unique_ptr<media::FormatBadgeWindow> formatBadge;
+    uint64_t formatBadgeSession = 0;
+
     // Last published snapshot and the revision it came from. Polling compares
     // revisions, so an unchanged snapshot costs one comparison per tick.
     engine::PlayerSnapshot snapshot;
@@ -273,7 +278,7 @@ struct QmlPlayerBridge::Impl {
     int thumbnailGeneration = 0;
     // The live source kind and label ("" for a file), for the page headers.
     QString liveKind, liveLabel;
-    // A live open waiting for the 极简 switch to settle (openAfterCinema); the
+    // A live open waiting for the destination page to settle; the
     // generation lets a newer open or a stop cancel it.
     int liveOpenGen = 0;
     QString pendingLiveText;
@@ -324,6 +329,7 @@ struct QmlPlayerBridge::Impl {
     QString currentPage;
     std::wstring captureDevice;
     QString screenTarget;
+    bool screenCropPreview = false;
     QString remotePlayHost, remotePlayPin;
 
     QTimer* timer = nullptr;
@@ -369,6 +375,7 @@ struct QmlPlayerBridge::Impl {
     QVariantMap prefs;
     // Live recording state published by the engine (see LiveRecorder.h).
     QVariantMap recordingState;
+    QVariantMap virtualCameraState;
     uint64_t recordingSaved = 0;   // LiveRecorder's finished-file counter already announced
     QVariantMap replayState;       // the instant replay buffer (#103)
     uint64_t replaySaved = 0;      // its saved-clip counter already announced
@@ -513,6 +520,11 @@ struct QmlPlayerBridge::Impl {
     QString protDraw;                         // "" | rect | ellipse
     bool protExclusion=false;
     HWND protOverlay = nullptr;
+    int exclusionSelected = -1;
+    bool exclusionDragging = false;
+    engine::ProtectionRect exclusionOriginal{}, exclusionPreview{};
+    std::pair<float,float> exclusionDragStart{};
+    QVariantList maskOverlayGeometry; // Repaint only when view, geometry or selection changes.
     // --- performance orbs / status light (#13) ---
     ui::live_status::DashboardHistory history;
     int historyTicks = 0;
@@ -538,6 +550,11 @@ struct QmlPlayerBridge::Impl {
     struct GpuAdapter { QString id, name; uint32_t luidHigh = 0, luidLow = 0; };
     std::vector<GpuAdapter> gpuAdapters;
     std::atomic<uint64_t> gpuMonitorLuid{0};
+    // Fork: busiest-engine % per adapter LUID, for the per-GPU orbs.
+    std::mutex gpuUtilsMutex;
+    std::map<uint64_t, double> gpuUtils;
+    double gpuSumPublished = -1.0;
+    QString fgStatusPublished;
     QString gpuMonitorName;
     // LUIDs that have "GPU Engine" counter instances. DXGI can list one physical GPU
     // twice (a virtual display driver such as GameViewer's exposes a second adapter
@@ -606,6 +623,15 @@ struct QmlPlayerBridge::Impl {
         veyra::log::info("perf", std::format("compute gpu follow={} wanted={} using={}", follow, wanted.isEmpty() ? "auto" : wanted.toStdString(),
             follow ? chosen->name.toStdString() : "default order (highest-performance adapter)"));
     }
+    // Fork: 设置 -> "Frame generation GPU". Empty = same GPU as the compute work.
+    void applyFgGpu() {
+        const QString wanted = prefString("fgGpu");
+        const GpuAdapter* chosen = nullptr;
+        for (const auto& a : gpuAdapters) if (!wanted.isEmpty() && a.id == wanted) chosen = &a;
+        gfx::setFrameGenerationAdapterLuid(chosen ? (uint64_t(chosen->luidHigh) << 32 | chosen->luidLow) : 0);
+        veyra::log::info("perf", std::format("frame generation gpu wanted={} using={}", wanted.isEmpty() ? "same as compute" : wanted.toStdString(),
+            chosen ? chosen->name.toStdString() : "same as compute"));
+    }
     void resolveGpuMonitor() {
         const QString wanted = prefString("monitorGpu");
         const GpuAdapter* chosen = gpuAdapters.empty() ? nullptr : &gpuAdapters.front();
@@ -627,19 +653,28 @@ struct QmlPlayerBridge::Impl {
     uint64_t aspectSession = 0;
     std::jthread gpuSampler;                 // joined before gpuUtil goes away
     std::filesystem::path prefsFile() const { return dataDir / L"qml-preferences.v1.json"; }
+    // The file exists but was not read (locked by antivirus/OneDrive, or damaged):
+    // saving the in-memory defaults would replace every saved setting with them.
+    bool prefsUnreadable = false;
     void loadPrefs() {
         QFile file(QString::fromStdWString(prefsFile().wstring()));
         if (!file.exists()) return;
-        if (!file.open(QIODevice::ReadOnly)) { veyra::log::warn("ui-prefs", "qml preferences unreadable; defaults used"); return; }
+        if (!file.open(QIODevice::ReadOnly)) {
+            prefsUnreadable = true;
+            veyra::log::warn("ui-prefs", "qml preferences unreadable; defaults used, file kept, saving disabled this session");
+            return;
+        }
         QJsonParseError error{};
         const auto doc = QJsonDocument::fromJson(file.readAll(), &error);
         if (error.error != QJsonParseError::NoError || !doc.isObject()) {
-            veyra::log::warn("ui-prefs", "qml preferences damaged; defaults used, file kept");
+            prefsUnreadable = true;
+            veyra::log::warn("ui-prefs", "qml preferences damaged; defaults used, file kept, saving disabled this session");
             return;
         }
         prefs = doc.object().toVariantMap();
     }
     bool savePrefs() {
+        if (prefsUnreadable) return false;
         const QString path = QString::fromStdWString(prefsFile().wstring());
         // A fresh data directory may not exist yet: the first preference saved
         // on a new profile used to fail and was silently kept only in memory.
@@ -669,8 +704,60 @@ struct QmlPlayerBridge::Impl {
                 }
         }
     }
+    // Fork: the last format used on each capture device, so trying another device
+    // (a virtual camera, say) and coming back does not lose the card's format.
+    std::wstring rememberedCaptureFormat(const std::wstring& device) const {
+        if(device.empty())return {};
+        if(device==capturePrefs.videoPath&&!capturePrefs.formatKey.empty())return capturePrefs.formatKey;
+        const auto byDevice=prefs.value(QStringLiteral("captureFormatByDevice")).toMap();
+        return byDevice.value(QString::fromStdWString(device)).toString().toStdWString();
+    }
+    void rememberCaptureFormat() {
+        if(captureDevice.empty()||captureFormatKey.empty())return;
+        auto byDevice=prefs.value(QStringLiteral("captureFormatByDevice")).toMap();
+        const auto device=QString::fromStdWString(captureDevice),key=QString::fromStdWString(captureFormatKey);
+        if(byDevice.value(device).toString()==key)return;
+        if(byDevice.size()>=32&&!byDevice.contains(device))byDevice.erase(byDevice.begin());
+        byDevice[device]=key;
+        prefs[QStringLiteral("captureFormatByDevice")]=byDevice;
+        savePrefs();
+    }
+    // Fork: the audio input chosen for each capture device, by endpoint path and
+    // mode (list indices move when devices come and go). Switching to another
+    // device and back used to leave the card with no audio (field report 2026-11-16).
+    void rememberCaptureAudio() {
+        // Nothing listed yet means no informed choice: keep what was remembered.
+        if(captureDevice.empty()||captureAudioMissing||captureAudio.empty())return;
+        const auto* audio=captureAudioChoice>=0&&size_t(captureAudioChoice)<captureAudio.size()?&captureAudio[size_t(captureAudioChoice)]:nullptr;
+        const QVariantMap entry{{QStringLiteral("path"),QString::fromStdWString(audio?audio->path:std::wstring{})},
+                                {QStringLiteral("mode"),audio?audio->audioMode():captureAudioChoice}};
+        auto byDevice=prefs.value(QStringLiteral("captureAudioByDevice")).toMap();
+        const auto device=QString::fromStdWString(captureDevice);
+        if(byDevice.value(device).toMap()==entry)return;
+        if(byDevice.size()>=32&&!byDevice.contains(device))byDevice.erase(byDevice.begin());
+        byDevice[device]=entry;
+        prefs[QStringLiteral("captureAudioByDevice")]=byDevice;
+        savePrefs();
+    }
+    // Returns false when nothing was remembered for this device.
+    bool restoreCaptureAudioFor(const std::wstring& device) {
+        const auto byDevice=prefs.value(QStringLiteral("captureAudioByDevice")).toMap();
+        const auto key=QString::fromStdWString(device);
+        if(device.empty()||!byDevice.contains(key))return false;
+        const auto entry=byDevice.value(key).toMap();
+        const int mode=entry.value(QStringLiteral("mode")).toInt();
+        const auto path=entry.value(QStringLiteral("path")).toString().toStdWString();
+        captureAudioChoice=source::kCaptureAudioDisabled;captureAudioMissing=false;
+        if(mode==source::kCaptureAudioFromVideoDevice){captureAudioChoice=source::kCaptureAudioFromVideoDevice;return true;}
+        if(path.empty())return true;
+        for(size_t k=0;k<captureAudio.size();++k)
+            if(captureAudio[k].path==path&&captureAudio[k].audioMode()==mode){captureAudioChoice=int(k);return true;}
+        return true; // Not connected now: start without sound rather than block.
+    }
     bool persistCaptureSelection(bool explicitFormat = false) {
         if(captureDevice.empty())return true; // Disconnecting a card must retain it.
+        rememberCaptureFormat();
+        rememberCaptureAudio();
         const bool sameDevice=capturePrefs.videoPath==captureDevice;
         capturePrefs.videoPath=captureDevice;
         // An unavailable saved type has no active selection. Editing another
@@ -716,7 +803,9 @@ struct QmlPlayerBridge::Impl {
                     initial.opticalFlowBackend=engine::OpticalFlowBackend::AmdFidelityFx;
                     initial.videoSrQuality=engine::kVideoSrFsr;
                 }
-                initial.frameGenerationBackend=engine::defaultFrameGenerationBackend(desc.VendorId);
+                // RX 9000 starts on FSR 4 ML (the same name rule as its menu gate, effectGpu()).
+                initial.frameGenerationBackend=engine::defaultFrameGenerationBackend(desc.VendorId,
+                    QString::fromWCharArray(desc.Description).contains(QStringLiteral("RX 90"),Qt::CaseInsensitive));
                 facade.setPending(initial);
                 veyra::log::info("nr-default",std::format("adapter={} selected={}",utf8Of(std::wstring(desc.Description)).toStdString(),engine::nrRuntimeName(initial.nrRuntime)));
                 break;
@@ -967,6 +1056,12 @@ struct QmlPlayerBridge::Impl {
     int xboxStatsTicks = 0;
     std::unique_ptr<ui::XboxModel> xbox;   // last: joins its worker first
 #endif
+
+    // Last published snapshot and the revision it came from. Polling compares
+    // revisions, so an unchanged snapshot costs one comparison per tick.
+
+    // The chain the UI edits, kept in step with the facade's pending settings.
+    uint64_t fgAutoSession = 0;       // 已为哪个会话决定过档位
 };
 
 

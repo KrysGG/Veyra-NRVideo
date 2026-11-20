@@ -10,6 +10,7 @@ ColumnLayout {
     VRow {
         objectName: root.namePrefix+"-nvidia-low-latency-row"
         label: qsTr("英伟达低延迟")
+        info: qsTr("NVIDIA Reflex-style low latency for Veyra's own rendering: frames are started as late as possible so they are fresher on screen. Leave it on with NVIDIA cards. If the frame rate halves or stutters, try turning it off.")
         hintBelow: true
         hint: !root.available ? qsTr("需要 NVIDIA 显卡") : ""
         VSeg {

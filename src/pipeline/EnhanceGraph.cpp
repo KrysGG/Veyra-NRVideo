@@ -1,4 +1,5 @@
 #include "veyra/pipeline/ColorMetadata.h"
+#include "veyra/pipeline/DolbyVisionP5.h"
 #include "veyra/pipeline/HdrToneMap.h"
 // EnhanceGraph implementation - the real GPU chain migrated from
 // tools/player_probe main.cpp (R3.2). Ordering constraints preserved from the
@@ -36,6 +37,7 @@
 #include "veyra/ngx/NvapiArchSpoof.h"
 #include "veyra/gfx/FsrSrBackend.h"
 #include "veyra/gfx/FsrFgPresenter.h"
+#include "veyra/gfx/AmfFrcBackend.h"
 #include "veyra/ngx/DlssNrParameters.h"
 #include "veyra/ngx/DlssNrRuntimeAdapter.h"
 #include "veyra/ngx/DlssSrBackend.h"
@@ -353,7 +355,7 @@ bool EnhanceGraph::createAdditionalColorResources(){
             // SDR -> RTX Video HDR also grades SDR before that later conversion.
             const bool mismatch=desc_.hdrWorking()?settings.lutInputSpace==engine::ColorSettings::kLutInputSrgb:settings.lutInputSpace==engine::ColorSettings::kLutInputPq;
             engine::ColorLutData lut;
-            const engine::ColorLutStore store(runtime::localDataDirectory());
+            const engine::ColorLutStore store(runtime::userDataDirectory());
             if(mismatch||!store.resolve(settings.lutNameString(),lut)||!lut.valid()||!instance->setLut(context_.device(),lut.rgb.data(),unsigned(lut.size))){
                 colorLutNotice_+=std::format(L" 调色实例 {} LUT 未加载：{}；其他调色继续。",i+2,mismatch?L"输入空间不匹配":L"资源不可用");
                 veyra::log::warn("color-grade",std::format("instance={} lut rejected mismatch={} name={}",i+1,mismatch,utf8Of(settings.lutNameString())));
@@ -412,7 +414,7 @@ bool EnhanceGraph::createNodeColorResources(){
             if(settings.hasLut()){
                 const bool mismatch=desc_.hdrWorking()?settings.lutInputSpace==engine::ColorSettings::kLutInputSrgb:settings.lutInputSpace==engine::ColorSettings::kLutInputPq;
                 engine::ColorLutData lut;
-                const engine::ColorLutStore store(runtime::localDataDirectory());
+                const engine::ColorLutStore store(runtime::userDataDirectory());
                 if(mismatch||!store.resolve(settings.lutNameString(),lut)||!lut.valid()||!instance->setLut(context_.device(),lut.rgb.data(),unsigned(lut.size))){
                     colorLutNotice_+=std::format(L" 调色实例 {} LUT 未加载：{}；其他调色继续。",parameter+1,mismatch?L"输入空间不匹配":L"资源不可用");
                     veyra::log::warn("color-grade",std::format("node instance={} lut rejected mismatch={} name={}",parameter,mismatch,utf8Of(settings.lutNameString())));
@@ -772,7 +774,8 @@ bool EnhanceGraph::initialize(const EnhanceGraphDesc& desc)
     nrEnabled_ = desc.enableNr && !desc.noFeatures && (!desc.noNgx || lmxxfNr_);
     fgEnabled_ = desc.enableFg && !desc.noFeatures && !desc.stillImage &&
         desc.frameGenerationBackend != engine::FrameGenerationBackend::XeSS &&
-        (!desc.noNgx || engine::fsrFrameGeneration(desc.frameGenerationBackend)||desc.frameGenerationBackend==engine::FrameGenerationBackend::Vfg||desc.frameGenerationBackend==engine::FrameGenerationBackend::Anr);
+        (!desc.noNgx || engine::fsrFrameGeneration(desc.frameGenerationBackend)||desc.frameGenerationBackend==engine::FrameGenerationBackend::Vfg||desc.frameGenerationBackend==engine::FrameGenerationBackend::Anr||
+         desc.frameGenerationBackend==engine::FrameGenerationBackend::AmdFrc);
     nvofStandalone_ = desc.enableNvofStandalone && !desc.noFeatures;
     if(desc_.opticalFlowBackend==engine::OpticalFlowBackend::AmdFidelityFx&&desc.amdFlowHalfResolution){nvofW_=std::max(1u,nvofW_/2);nvofH_=std::max(1u,nvofH_/2);}
     wchar_t refine[4]{};
@@ -899,6 +902,8 @@ bool EnhanceGraph::initialize(const EnhanceGraphDesc& desc)
     if (!initFsrSr()) return false;
     if (!initFsrFg()) return false;
     if (!initVfg()) return false;
+    if (!initAmfFrc()) return false;
+    if (!initHudLock()) return false;
     if(nrEnabled_&&GetEnvironmentVariableW(L"VEYRA_TEST_NR_INIT_FAILURE",nullptr,0)){
         failedBackend_=engine::FailedBackend::Nr;
         veyra::log::error("backend-recovery-test","test-only NR initialization rejection before SDK call; not a hardware failure");return false;
@@ -1063,7 +1068,7 @@ bool EnhanceGraph::createResources()
             }else{
                 colorLutNotice_.clear();
                 engine::ColorLutData lut;
-                const engine::ColorLutStore store(runtime::localDataDirectory());
+                const engine::ColorLutStore store(runtime::userDataDirectory());
                 if(store.resolve(desc_.color.lutNameString(),lut)&&lut.valid()&&setColorLut(lut.rgb.data(),unsigned(lut.size))){
                     // The name must be converted once: building the log argument
                     // from lutNameString().begin() and .end() created two
@@ -1541,6 +1546,25 @@ bool EnhanceGraph::initFsrFg() {
     return true;
 }
 
+// Live HUD Lock (HudLock.h, ported from PushFPS). Graph frame generation only (XeSS
+// generates inside its presenter); a pass that cannot be created leaves frame
+// generation as it was and reports state 2.
+bool EnhanceGraph::initHudLock() {
+    hudLock_.reset();
+    if(!desc_.hudLock||!fgEnabled_||presentSinkFg())return true;
+    auto pass=std::make_unique<HudLock>();
+    if(!pass->initialize(context_.device(),workW_,workH_,outputFormat(),hdr10Output()?2u:desc_.hdrOutput?1u:0u)){
+        veyra::log::error("hud-lock",std::format("Live HUD Lock unavailable at {}x{}; frame generation runs without it",workW_,workH_));
+        return true;
+    }
+    hudLock_=std::move(pass);
+    return true;
+}
+void EnhanceGraph::composeHudLock(ID3D12GraphicsCommandList* list,unsigned generatedSlot,unsigned heldParity){
+    if(hudLock_&&!hudLock_->compose(list,tracker_,generatedSlot,heldParity))
+        veyra::log::warn("hud-lock",std::format("compose skipped slot={} held={}",generatedSlot,heldParity));
+}
+
 bool EnhanceGraph::initVfg()
 {
     if(!fgEnabled_||desc_.frameGenerationBackend!=engine::FrameGenerationBackend::Vfg)return true;
@@ -1548,6 +1572,21 @@ bool EnhanceGraph::initVfg()
     vfgBackend_=std::make_unique<VfgBackend>();
     if(!vfgBackend_->initialize(context_,desc_.runtimeAbsPath,workW_,workH_,outputFormat(),desc_.fgMultiplier,desc_.vfgQuality,desc_.vfgAsyncSubmission,desc_.vfgFastFallback))return false;
     fgCapsAvailable_=true;fgMultiFrameMax_=int(FrameBatch::Capacity)-1;
+    return true;
+}
+
+bool EnhanceGraph::amfFrcActive() const { return amfFrc_&&amfFrc_->ready(); }
+bool EnhanceGraph::initAmfFrc()
+{
+    if(!fgEnabled_||!amfFrcEnabled())return true;
+    failedBackend_=engine::FailedBackend::Fg;
+    if(desc_.fgMultiplier!=2){veyra::log::error("amf-frc","AMD FRC generates one frame per pair (2X only)");return false;}
+    // APUs (little dedicated memory) take the downscaled motion search AMD suggests for them.
+    const bool lowPower=context_.adapter().dedicatedVideoMemoryBytes<(uint64_t(2)<<30);
+    amfFrc_=std::make_unique<gfx::AmfFrcBackend>();
+    if(!amfFrc_->initialize(context_.device(),ring_.queue(),workW_,workH_,outputFormat(),lowPower))return false;
+    fgCapsAvailable_=true;fgMultiFrameMax_=1;
+    failedBackend_=engine::FailedBackend::None;
     return true;
 }
 
@@ -1594,7 +1633,7 @@ bool EnhanceGraph::initNgxFeatures()
     }
     // FSR upscaling is a FidelityFX effect: a session whose only feature is
     // FSR SR must not require (or fail on) the NGX core.
-    const bool needNgxCore = (nrEnabled_ && !lmxxfNr_) || (fgEnabled_ && !fsrEnabled() && !vfgBackend_ && !anr) || desc_.convertVideoHdr() ||
+    const bool needNgxCore = (nrEnabled_ && !lmxxfNr_) || (fgEnabled_ && !fsrEnabled() && !vfgBackend_ && !anr && !amfFrc_) || desc_.convertVideoHdr() ||
         (srEnabled_ && (desc_.finalSrQuality()==0 || desc_.firstSrRuns(0) || ngxVideoSrPass(desc_))) || dlaaRequested();
     if (!needNgxCore) {
         veyra::log::info("graph", "NGX core skipped: lmxxf NR / AMD FSR stages use their own runtimes");
@@ -1662,7 +1701,7 @@ bool EnhanceGraph::initNgxFeatures()
     }
     }
 
-    if(!vfgBackend_&&!anr){fgCapsAvailable_ = false;fgMultiFrameMax_ = 0;}
+    if(!vfgBackend_&&!anr&&!amfFrc_){fgCapsAvailable_ = false;fgMultiFrameMax_ = 0;}
     if (fgEnabled_ && desc_.frameGenerationBackend==engine::FrameGenerationBackend::Dlss) {
     failedBackend_=engine::FailedBackend::Fg;
     fgBackend_ = std::make_unique<ngx::DlssFgBackend>();
@@ -1729,6 +1768,7 @@ bool EnhanceGraph::initNgxFeatures()
         veyra::log::error("graph", std::format("NR snippet init failed 0x{:X}", nrResult_));
         return false;
     }
+    nrSnippetInitialized_ = true;
     }
     failedBackend_=engine::FailedBackend::NgxCore;
     ngxParams_ = coreHost_->allocateParameters(st);
@@ -2195,7 +2235,9 @@ bool EnhanceGraph::createComputePasses()
     // needs the FP32 side output. The extra UAV is part of the R5.3 contract
     // only for graphs that actually allocate preGradeRgba_.
     const UINT ingressUavCount = preGradeRgba_ ? 2u : 1u;
-    if (!yuvPass_.loadShader("YuvToLinearRgb.dxil", cs) || !yuvPass_.create(context_.device(), cs, 12, 2, ingressUavCount, 12+kColorGradeConstantCount, 4)) return false;
+    // extraSrvCount covers t8..t14: the five colour-grade tables plus the three
+    // Dolby Vision profile 7 enhancement layer planes (luma, chroma, curve).
+    if (!yuvPass_.loadShader("YuvToLinearRgb.dxil", cs) || !yuvPass_.create(context_.device(), cs, 16, 2, ingressUavCount, 12+kColorGradeConstantCount+kDolbyVisionP5ConstantCount, 7)) return false;
     const char* rgbShader=desc_.packedInput?"PackedCaptureToLinear.dxil":desc_.yuy2Input?"Yuy2ToLinear.dxil":"RgbToLinear.dxil";
     if((desc_.rgbInput||desc_.yuy2Input||desc_.packedInput)&&(!rgbPass_.loadShader(rgbShader,cs)||!rgbPass_.create(context_.device(),cs,12,1,ingressUavCount,(desc_.packedInput?12:8)+kColorGradeConstantCount,4)))return false;
     // Descriptor budget grows with the NR stack: encode needs one SRV+UAV pair
@@ -2237,6 +2279,12 @@ bool EnhanceGraph::createViews()
 {
     bindSignedHdrRestore(firstSrHdrRestore_,srStageInput(),firstSrLinear_.Get());
     bindSignedHdrRestore(srHdrRestore_,desc_.dualSr?srPrescaled_.Get():srStageInput(),workRgba_.Get());
+    if(hudLock_){
+        ID3D12Resource* const real[2]={videoFrame_[0].Get(),videoFrame_[1].Get()};
+        std::array<ID3D12Resource*,kGeneratedPoolSlots> generated{};
+        for(size_t i=0;i<kGeneratedPoolSlots;++i)generated[i]=genFrame_[i].Get();
+        hudLock_->createViews(context_.device(),stager_,real,generated.data(),unsigned(generated.size()));
+    }
     // Descriptor initialization is DEFAULT ON since the RAW-upload-SRV removal
     // (2026-09-06): texture SRV/UAV views keep the device alive and NVOF
     // executing (r33b-tu: 599/599 executes, real motion/confidence, 0
@@ -2599,6 +2647,168 @@ bool EnhanceGraph::createViews()
 // ---------------------------------------------------------------------------
 // process: the per-frame chain (verbatim from the probe lambda).
 // ---------------------------------------------------------------------------
+
+// Custom (P5): copy the enhancement layer luma plane into its own texture. The EL
+// arrives as a CPU frame (software decode) at half the base resolution, so this is
+// one row-wise copy per frame; no parity slot is needed because the upload and the
+// dispatch that reads it are submitted in the same command list.
+bool EnhanceGraph::uploadElLuma(ID3D12GraphicsCommandList* list, const AVFrame* frame) {
+    if (list == nullptr || frame == nullptr || frame->data[0] == nullptr) return false;
+    const auto w = uint32_t(frame->width), h = uint32_t(frame->height);
+    if (w == 0 || h == 0) return false;
+    if (!elLumaTexture_ || elLumaW_ != w || elLumaH_ != h) {
+        elLumaTexture_ = makeTexture(context_.device(), w, h, DXGI_FORMAT_R16_UINT, false);
+        if (!elLumaTexture_) return false;
+        D3D12_HEAP_PROPERTIES hp{};
+        hp.Type = D3D12_HEAP_TYPE_UPLOAD;
+        D3D12_RESOURCE_DESC rd{};
+        rd.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+        rd.Width = uint64_t(w) * 2ull * h;
+        rd.Height = 1;
+        rd.DepthOrArraySize = 1;
+        rd.MipLevels = 1;
+        rd.Format = DXGI_FORMAT_UNKNOWN;
+        rd.SampleDesc.Count = 1;
+        rd.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+        if (FAILED(context_.device()->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &rd,
+                D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&elLumaUpload_)))) {
+            elLumaTexture_.Reset();
+            return false;
+        }
+        elLumaW_ = w;
+        elLumaH_ = h;
+        veyra::log::info("dovi-el-gpu", std::format("enhancement layer texture {}x{} r16_uint", w, h));
+    }
+    const uint32_t srcPitch = uint32_t(frame->linesize[0]);
+    const uint32_t dstPitch = w * 2u;
+    void* mapped = nullptr;
+    if (FAILED(elLumaUpload_->Map(0, nullptr, &mapped)) || mapped == nullptr) return false;
+    for (uint32_t y = 0; y < h; ++y)
+        std::memcpy(static_cast<uint8_t*>(mapped) + size_t(y) * dstPitch,
+                    frame->data[0] + size_t(y) * srcPitch, dstPitch);
+    elLumaUpload_->Unmap(0, nullptr);
+    tracker_.transition(list, elLumaTexture_.Get(), D3D12_RESOURCE_STATE_COPY_DEST);
+    D3D12_TEXTURE_COPY_LOCATION dst{};
+    dst.pResource = elLumaTexture_.Get();
+    dst.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+    D3D12_TEXTURE_COPY_LOCATION src{};
+    src.pResource = elLumaUpload_.Get();
+    src.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+    src.PlacedFootprint.Footprint.Format = DXGI_FORMAT_R16_UINT;
+    src.PlacedFootprint.Footprint.Width = w;
+    src.PlacedFootprint.Footprint.Height = h;
+    src.PlacedFootprint.Footprint.Depth = 1;
+    src.PlacedFootprint.Footprint.RowPitch = dstPitch;
+    list->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
+    tracker_.transition(list, elLumaTexture_.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+    return true;
+}
+
+bool EnhanceGraph::uploadElChroma(ID3D12GraphicsCommandList* list, const AVFrame* frame) {
+    if (list == nullptr || frame == nullptr || frame->data[1] == nullptr || frame->data[2] == nullptr) return false;
+    const auto w = uint32_t((frame->width + 1) / 2), h = uint32_t((frame->height + 1) / 2);
+    if (w == 0 || h == 0) return false;
+    if (!elChromaTexture_ || elChromaW_ != w || elChromaH_ != h) {
+        elChromaTexture_ = makeTexture(context_.device(), w, h, DXGI_FORMAT_R16G16_UINT, false);
+        if (!elChromaTexture_) return false;
+        D3D12_HEAP_PROPERTIES hp{};
+        hp.Type = D3D12_HEAP_TYPE_UPLOAD;
+        D3D12_RESOURCE_DESC rd{};
+        rd.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+        rd.Width = uint64_t(w) * 4ull * h;
+        rd.Height = 1;
+        rd.DepthOrArraySize = 1;
+        rd.MipLevels = 1;
+        rd.Format = DXGI_FORMAT_UNKNOWN;
+        rd.SampleDesc.Count = 1;
+        rd.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+        if (FAILED(context_.device()->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &rd,
+                D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&elChromaUpload_)))) {
+            elChromaTexture_.Reset();
+            return false;
+        }
+        elChromaW_ = w;
+        elChromaH_ = h;
+        veyra::log::info("dovi-el-gpu", std::format("enhancement layer chroma texture {}x{} r16g16_uint", w, h));
+    }
+    const uint32_t dstPitch = w * 4u;
+    void* mapped = nullptr;
+    if (FAILED(elChromaUpload_->Map(0, nullptr, &mapped)) || mapped == nullptr) return false;
+    for (uint32_t y = 0; y < h; ++y) {
+        const auto* srcU = reinterpret_cast<const uint16_t*>(frame->data[1] + size_t(y) * size_t(frame->linesize[1]));
+        const auto* srcV = reinterpret_cast<const uint16_t*>(frame->data[2] + size_t(y) * size_t(frame->linesize[2]));
+        auto* row = reinterpret_cast<uint16_t*>(static_cast<uint8_t*>(mapped) + size_t(y) * dstPitch);
+        for (uint32_t x = 0; x < w; ++x) {
+            row[x * 2 + 0] = srcU[x];
+            row[x * 2 + 1] = srcV[x];
+        }
+    }
+    elChromaUpload_->Unmap(0, nullptr);
+    tracker_.transition(list, elChromaTexture_.Get(), D3D12_RESOURCE_STATE_COPY_DEST);
+    D3D12_TEXTURE_COPY_LOCATION dst{};
+    dst.pResource = elChromaTexture_.Get();
+    dst.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+    D3D12_TEXTURE_COPY_LOCATION src{};
+    src.pResource = elChromaUpload_.Get();
+    src.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+    src.PlacedFootprint.Footprint.Format = DXGI_FORMAT_R16G16_UINT;
+    src.PlacedFootprint.Footprint.Width = w;
+    src.PlacedFootprint.Footprint.Height = h;
+    src.PlacedFootprint.Footprint.Depth = 1;
+    src.PlacedFootprint.Footprint.RowPitch = dstPitch;
+    list->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
+    tracker_.transition(list, elChromaTexture_.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+    return true;
+}
+
+bool EnhanceGraph::uploadElCurve(ID3D12GraphicsCommandList* list) {
+    constexpr uint32_t kWidth = uint32_t(kDoviP7Components * kDoviP7CurveVec4);
+    constexpr uint32_t kHeight = 1;
+    if (!elCurveTexture_) {
+        elCurveTexture_ = makeTexture(context_.device(), kWidth, kHeight, DXGI_FORMAT_R32G32B32A32_FLOAT, false);
+        if (!elCurveTexture_) return false;
+        D3D12_HEAP_PROPERTIES hp{};
+        hp.Type = D3D12_HEAP_TYPE_UPLOAD;
+        D3D12_RESOURCE_DESC rd{};
+        rd.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+        rd.Width = uint64_t(kWidth) * 16ull * kHeight;
+        rd.Height = 1;
+        rd.DepthOrArraySize = 1;
+        rd.MipLevels = 1;
+        rd.Format = DXGI_FORMAT_UNKNOWN;
+        rd.SampleDesc.Count = 1;
+        rd.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+        if (FAILED(context_.device()->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &rd,
+                D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&elCurveUpload_)))) {
+            elCurveTexture_.Reset();
+            return false;
+        }
+    }
+    float packed[kDoviP7Components * kDoviP7CurveVec4][4] = {};
+    for (int c = 0; c < kDoviP7Components; ++c)
+        for (int v = 0; v < kDoviP7CurveVec4; ++v)
+            for (int k = 0; k < 4; ++k) packed[c * kDoviP7CurveVec4 + v][k] = p7Curve_[c][v][k];
+    void* mapped = nullptr;
+    if (FAILED(elCurveUpload_->Map(0, nullptr, &mapped)) || mapped == nullptr) return false;
+    std::memcpy(mapped, packed, sizeof(packed));
+    elCurveUpload_->Unmap(0, nullptr);
+    tracker_.transition(list, elCurveTexture_.Get(), D3D12_RESOURCE_STATE_COPY_DEST);
+    D3D12_TEXTURE_COPY_LOCATION dst{};
+    dst.pResource = elCurveTexture_.Get();
+    dst.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+    D3D12_TEXTURE_COPY_LOCATION src{};
+    src.pResource = elCurveUpload_.Get();
+    src.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+    src.PlacedFootprint.Footprint.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+    src.PlacedFootprint.Footprint.Width = kWidth;
+    src.PlacedFootprint.Footprint.Height = kHeight;
+    src.PlacedFootprint.Footprint.Depth = 1;
+    src.PlacedFootprint.Footprint.RowPitch = kWidth * 16u;
+    list->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
+    tracker_.transition(list, elCurveTexture_.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+    return true;
+}
+
 bool EnhanceGraph::composeExclusion(ID3D12GraphicsCommandList* list,unsigned output,unsigned rawParity,bool ui) {
     if(!desc_.exclusion.enabled)return true;
     auto* enhanced=output<2?videoFrame_[output].Get():genFrame_[output-2].Get();
@@ -2635,9 +2845,16 @@ bool EnhanceGraph::composeExclusion(ID3D12GraphicsCommandList* list,unsigned out
     return true;
 }
 
-bool EnhanceGraph::process(const AVFrame* frame, double ptsMs, bool reset, FrameOutputs& out, uint64_t sourceFrameId, const ColorDescription* color, const HardwareSurfaceInput* hardwareSurface, bool retainReferences, const FgAdmission& admitFg, unsigned previewMultiplier, bool pausedResidualRefresh, const std::function<void()>& previewCheckpoint)
+bool EnhanceGraph::process(const AVFrame* frame, double ptsMs, bool reset, FrameOutputs& out, uint64_t sourceFrameId, const ColorDescription* color, const HardwareSurfaceInput* hardwareSurface, bool retainReferences, const FgAdmission& admitFg, unsigned previewMultiplier, bool pausedResidualRefresh, const std::function<void()>& previewCheckpoint, const AVFrame* doviEl, const DoviP7Constants* doviP7)
 {
+    doviElFrame_ = doviEl;   // Custom (P5): borrowed for this frame only
+    p7Ready_ = doviP7 != nullptr && doviP7->ready;
+    if (p7Ready_) {
+        std::memcpy(p7Params_, doviP7->params, sizeof(p7Params_));
+        std::memcpy(p7Curve_, doviP7->curve, sizeof(p7Curve_));
+    }
     retainReferences=retainReferences||desc_.exclusion.enabled;
+
     reset=reset||nrAutoResetPending_;nrAutoResetPending_=false;
     frameFlowValid_=false;
     // Whole-chain duplicate reuse failed the unchanged-output experiment.
@@ -3011,13 +3228,70 @@ bool EnhanceGraph::process(const AVFrame* frame, double ptsMs, bool reset, Frame
         list->Dispatch((srcW_+15)/16,(srcH_+15)/16,1);
     }else{
         // 0 full range, 1 limited, 2 limited luma with full-range chroma (Elgato non-MK.2 P010).
-        float constants[12+kColorGradeConstantCount] = { resolved.range==ColorRange::Full?0.0f:resolved.fullRangeChroma?2.0f:1.0f,
+        float constants[12+kColorGradeConstantCount+kDolbyVisionP5ConstantCount] = { resolved.range==ColorRange::Full?0.0f:resolved.fullRangeChroma?2.0f:1.0f,
             resolved.matrix==YuvMatrix::BT2020NCL?2.0f:resolved.matrix==YuvMatrix::BT601?0.0f:1.0f,
             resolved.transfer==TransferFunction::HLG?5.0f:resolved.transfer==TransferFunction::PQ?4.0f:float(workingTransferCode(resolved)), (nv12Texture?(nv12Texture->GetDesc().Format==DXGI_FORMAT_P010?1.0f:0.0f):(desc_.captureBitDepth==16?2.0f:desc_.wideYuvInput()?1.0f:0.0f)),
             uintBits(srcW_), uintBits(srcH_), uintBits((desc_.hdrWorking()?1u:0u)|(resolved.primaries==ColorPrimaries::BT2020?2u:0u)),
             uintBits(resolved.reconstructChroma?std::max(1u,unsigned(resolved.chromaLocation)):0u),toneMapPeakNits_,203.0f,0,0 };
         if(grade)packColorGradeConstants(colorTables_,constants+12);
+        // Dolby Vision profile 5: written on every frame because the enable flag
+        // lives inside the block, so switching source content back to ordinary
+        // video clears it without any extra graph state.
+        packDolbyVisionP5Constants(resolved.dolbyVisionP5,constants+12+kColorGradeConstantCount);
+        // Custom (P5): when this frame's RPU is expressible, the same lanes carry
+        // the reconstruction parameters (profile 5 and 7 are exclusive) and the
+        // enhancement layer luma goes to t12.
+        if (doviElFrame_ != nullptr) {
+            static unsigned p7Dbg = 0;
+            if (++p7Dbg <= 3 || p7Dbg % 200 == 0)
+                veyra::log::info("dovi-el-gpu", std::format("dbg p7Ready={} el={}x{} fmt={}",
+                    p7Ready_ ? 1 : 0, doviElFrame_->width, doviElFrame_->height, int(doviElFrame_->format)));
+        }
+        bool p7Bound = false;
+        if (p7Ready_ && doviElFrame_ != nullptr && uploadElLuma(list, doviElFrame_) &&
+            uploadElChroma(list, doviElFrame_) && uploadElCurve(list)) {
+            std::memcpy(constants + 12 + kColorGradeConstantCount, p7Params_, sizeof(p7Params_));
+            // Custom (P7) diagnostic: dv3.x asks the shader to show the reconstruction gap.
+            if (std::getenv("VEYRA_DOVI_P7_DUMP") != nullptr) constants[12 + kColorGradeConstantCount + 27] = 3.0f;
+            D3D12_SHADER_RESOURCE_VIEW_DESC elSrvDesc{};
+            elSrvDesc.Format = DXGI_FORMAT_R16_UINT;
+            elSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+            elSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+            elSrvDesc.Texture2D.MipLevels = 1;
+            stager_.stageSrv(elLumaTexture_.Get(), &elSrvDesc, yuvPass_.heap.Get(), 12);
+            D3D12_SHADER_RESOURCE_VIEW_DESC elChromaSrvDesc{};
+            elChromaSrvDesc.Format = DXGI_FORMAT_R16G16_UINT;
+            elChromaSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+            elChromaSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+            elChromaSrvDesc.Texture2D.MipLevels = 1;
+            stager_.stageSrv(elChromaTexture_.Get(), &elChromaSrvDesc, yuvPass_.heap.Get(), 13);
+            D3D12_SHADER_RESOURCE_VIEW_DESC elCurveSrvDesc{};
+            elCurveSrvDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+            elCurveSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+            elCurveSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+            elCurveSrvDesc.Texture2D.MipLevels = 1;
+            stager_.stageSrv(elCurveTexture_.Get(), &elCurveSrvDesc, yuvPass_.heap.Get(), 14);
+            p7Bound = true;
+        }
         yuvPass_.bind(list, constants, gpuHandleOf(yuvPass_, nv12Texture ? 3 + parity * 2 : 0).ptr, gpuHandleOf(yuvPass_, 2+uavSlot).ptr,gpuHandleOf(yuvPass_,8).ptr);
+        {
+            static unsigned p7BoundCount = 0;
+            const unsigned before = p7BoundCount;
+            if (p7Bound) ++p7BoundCount;
+            static bool dvLogged = false;
+            if (p7Bound && !dvLogged) {
+                dvLogged = true;
+                const float* p7 = constants + 12 + kColorGradeConstantCount;
+                veyra::log::info("dovi-el-gpu", std::format("bound first frame dv6.w={:.1f} dv0.x={:.0f}",
+                    p7[27], p7[0]));
+            }
+            // Only once the layer has actually been bound: an ordinary source never
+            // binds it, and logging "bound=0" every frame then wrote 5400+ identical
+            // lines per play, burying the rest of the log.
+            if (p7Bound && (p7BoundCount <= 3 || (before != p7BoundCount && p7BoundCount % 100 == 0)))
+                veyra::log::info("dovi-el-gpu", std::format("bound={} frames={} ready={} el={}",
+                    p7Bound ? 1 : 0, p7BoundCount, p7Ready_ ? 1 : 0, doviElFrame_ ? 1 : 0));
+        }
         list->Dispatch((srcW_ + 15) / 16, (srcH_ + 15) / 16, 1);
     }
     tracker_.uavBarrier(list, target);
@@ -3968,7 +4242,16 @@ bool EnhanceGraph::process(const AVFrame* frame, double ptsMs, bool reset, Frame
         if(!vfgBackend_->capture(list,videoFrame_[parity].Get(),parity,!resetFg)){failedBackend_=engine::FailedBackend::Fg;return false;}
         tracker_.transition(list,videoFrame_[parity].Get(),D3D12_RESOURCE_STATE_COMMON);
     }
+    if(runFg&&amfFrc_){
+        // As for VFG, the span from here to the copy back brackets AMF's own queue work.
+        gpuTimer_.mark(list,GpuStage::FgBatch);gpuTimer_.mark(list,GpuStage::Fg1);
+        tracker_.transition(list,videoFrame_[parity].Get(),D3D12_RESOURCE_STATE_COPY_SOURCE);
+        if(!amfFrc_->capture(list,videoFrame_[parity].Get())){failedBackend_=engine::FailedBackend::Fg;return false;}
+        tracker_.transition(list,videoFrame_[parity].Get(),D3D12_RESOURCE_STATE_COMMON);
+    }
     if(!composeExclusion(list,parity,parity,presentSinkFg()))return false;
+    // Live HUD Lock learns from this real frame against the previous one (enhanced colours).
+    if(hudLock_&&!hudLock_->update(list,tracker_,parity,!prevValid_))veyra::log::warn("hud-lock","update skipped");
     if(!runFg)gpuTimer_.resolve(list);
     if (!submitGraph(slot)) return false;
     if(!runFg)gpuTimer_.submitted(ring_.lastSignaledValue());
@@ -3979,24 +4262,68 @@ bool EnhanceGraph::process(const AVFrame* frame, double ptsMs, bool reset, Frame
     if (runFg && fgCreated()) {
       for(uint32_t sub=1;sub<=fgCalls;++sub){
         const uint32_t generatedSlot=parity+(sub-1)*2;
+        if(amfFrc_){
+            // GPU producer -> AMF FRC on its own queue -> GPU consumer, ordered by
+            // AMF's texture fences (queue waits, no CPU wait). One frame per pair.
+            if(!amfFrc_->generate(int64_t(std::llround(ptsMs*10000.0)),resetFg)){failedBackend_=engine::FailedBackend::Fg;return false;}
+            auto* flist=ring_.acquireNext(slot,st);if(!flist)return false;
+            tracker_.transition(flist,genFrame_[generatedSlot].Get(),D3D12_RESOURCE_STATE_COPY_DEST);
+            const bool copied=amfFrc_->copyOutput(flist,genFrame_[generatedSlot].Get());
+            if(!copied&&!resetFg){veyra::log::error("amf-frc","AMF returned no interpolated frame for this pair");failedBackend_=engine::FailedBackend::Fg;return false;}
+            composeHudLock(flist,generatedSlot,resetFg?parity:1-parity);
+            if(!composeExclusion(flist,generatedSlot+2,resetFg?parity:1-parity,false))return false;
+            tracker_.transition(flist,genFrame_[generatedSlot].Get(),D3D12_RESOURCE_STATE_COMMON);
+            gpuTimer_.mark(flist,GpuStage::Fg1,true);gpuTimer_.mark(flist,GpuStage::FgBatch,true);gpuTimer_.resolve(flist);
+            if(!submitGraph(slot))return false;
+            amfFrc_->submitted();
+            gpuTimer_.submitted(ring_.lastSignaledValue());
+            if(previewCheckpoint&&!reset)previewCheckpoint();
+            ++out.fgEvaluated;out.hasGenerated=!resetFg&&copied&&!amfFrc_->warmingUp();out.genSlot=parity;
+            out.genFenceValue=ring_.lastSignaledValue();out.genFenceObject=context_.fence();out.generatedPtsMs=(prevPtsMs_+ptsMs)*0.5;
+            if(out.hasGenerated){
+                ++metrics_.fgSubmittedCandidates;
+                BatchFrame f;f.identity=out.batch.identity;f.kind=FrameKind::Generated;f.validity=GenerationValidity::Pending;f.subframe=sub;
+                f.pts100ns=FrameBatch::interpolate(out.batch.a100ns,out.batch.b100ns,sub,outputMultiplier);
+                f.lease=std::make_shared<FrameLease>();f.lease->texture=genFrame_[generatedSlot];f.lease->slot=generatedSlot;
+                f.lease->readyFence=out.genFenceValue;f.lease->readyFenceObject=out.genFenceObject;generatedLeases_[generatedSlot]=f.lease;out.batch.append(std::move(f));
+            }
+            continue;
+        }
         if(vfgBackend_){
             // GPU producer -> CUDA interpolation -> GPU consumer. No per-frame
             // CPU fence waits/readback; the bounded command ring owns reuse.
             if(!vfgBackend_->generate(parity,sub,resetFg?2u:outputMultiplier,resetFg,out.fgFast)){failedBackend_=engine::FailedBackend::Fg;return false;}
-            auto* flist=ring_.acquireNext(slot,st);if(!flist)return false;
+            // Split (VFG on a second GPU): this copy runs on VFG's own queue so
+            // the graph queue continues with the next frame instead of waiting.
+            const bool split=vfgBackend_->split();
+            auto* flist=split?vfgBackend_->beginConsumer():ring_.acquireNext(slot,st);
+            if(!flist){if(split)failedBackend_=engine::FailedBackend::Fg;return false;}
             tracker_.transition(flist,genFrame_[generatedSlot].Get(),D3D12_RESOURCE_STATE_COPY_DEST);
             if(!vfgBackend_->copyOutput(flist,genFrame_[generatedSlot].Get(),generatedSlot)){failedBackend_=engine::FailedBackend::Fg;return false;}
+            composeHudLock(flist,generatedSlot,resetFg?parity:1-parity);
             if(!composeExclusion(flist,generatedSlot+2,resetFg?parity:1-parity,false))return false;
             tracker_.transition(flist,genFrame_[generatedSlot].Get(),D3D12_RESOURCE_STATE_COMMON);
             const auto timingStage=GpuStage(unsigned(GpuStage::Fg1)+sub-1);gpuTimer_.mark(flist,timingStage,true);
             if(sub<fgCalls)gpuTimer_.mark(flist,GpuStage(unsigned(GpuStage::Fg1)+sub));
             else{gpuTimer_.mark(flist,GpuStage::FgBatch,true);gpuTimer_.resolve(flist);}
-            if(!submitGraph(slot))return false;
-            if(sub==fgCalls)gpuTimer_.submitted(ring_.lastSignaledValue());
+            if(split){
+                ID3D12Fence* consumer=nullptr;uint64_t consumerValue=0;
+                // The effect-exclusion pass above reads this frame's raw source
+                // reference, written on the graph queue: the consumer queue then
+                // also waits for the graph's latest submission (GPU-side only).
+                ID3D12Fence* graphFence=desc_.exclusion.enabled?context_.fence():nullptr;
+                if(!vfgBackend_->submitConsumer(parity,consumer,consumerValue,graphFence,ring_.lastSignaledValue())){failedBackend_=engine::FailedBackend::Fg;return false;}
+                if(sub==fgCalls)gpuTimer_.submitted(consumerValue,consumer);
+                out.genFenceValue=consumerValue;out.genFenceObject=consumer;
+            }else{
+                if(!submitGraph(slot))return false;
+                if(sub==fgCalls)gpuTimer_.submitted(ring_.lastSignaledValue());
+                out.genFenceValue=ring_.lastSignaledValue();out.genFenceObject=context_.fence();
+            }
             // VFG work is already submitted here; an older frame due now goes out.
             if(previewCheckpoint&&!reset)previewCheckpoint();
             ++out.fgEvaluated;out.hasGenerated=!resetFg;out.genSlot=parity;
-            out.genFenceValue=ring_.lastSignaledValue();out.genFenceObject=context_.fence();out.generatedPtsMs=(prevPtsMs_+ptsMs)*0.5;
+            out.generatedPtsMs=(prevPtsMs_+ptsMs)*0.5;
             if(out.hasGenerated){
                 ++metrics_.fgSubmittedCandidates;
                 BatchFrame f;f.identity=out.batch.identity;f.kind=FrameKind::Generated;f.validity=GenerationValidity::Pending;f.subframe=sub;
@@ -4068,6 +4395,7 @@ bool EnhanceGraph::process(const AVFrame* frame, double ptsMs, bool reset, Frame
         tracker_.transition(flist,fgDisable_[parity].Get(),D3D12_RESOURCE_STATE_COPY_SOURCE);
         flist->CopyBufferRegion(fgDisableReadback_[generatedSlot].Get(),0,fgDisable_[parity].Get(),0,4);
         }
+        composeHudLock(flist,generatedSlot,resetFg?parity:1-parity);
         if(!composeExclusion(flist,generatedSlot+2,resetFg?parity:1-parity,false))return false;
         tracker_.transition(flist,videoFrame_[parity].Get(),D3D12_RESOURCE_STATE_COMMON);
         tracker_.transition(flist,genFrame_[generatedSlot].Get(),D3D12_RESOURCE_STATE_COMMON);
@@ -4132,7 +4460,7 @@ bool EnhanceGraph::resolveFrame(FrameOutputs& out,uint32_t index)
             return true;
         }
     }
-    if(fsrActive()||vfgBackend_){
+    if(fsrActive()||vfgBackend_||amfFrc_){
         frame.validity=GenerationValidity::Valid;++metrics_.fgGeneratedFrames;
         return true;
     }
@@ -4268,6 +4596,12 @@ bool EnhanceGraph::applySettings(const engine::EnhancementSettings& s){
     // Keep the same baseline at initialization and live updates. Resolution
     // happens once in VideoPresenter, which knows the actual output monitor.
     desc_.hdrCurve=s.hdrCurve;desc_.hdrMetadata=s.hdrMetadata;
+    // Live as well: the presenter decides per frame, so toggling it never needs a
+    // graph rebuild. The change is rare, so it is worth one line: a settings
+    // round trip that loses the flag is otherwise invisible.
+    if(desc_.doviFollow!=s.doviFollow)
+        veyra::log::info("hdr-dovi",std::format("Dolby Vision follow {} -> {}",desc_.doviFollow?"on":"off",s.doviFollow?"on":"off"));
+    desc_.doviFollow=s.doviFollow;
     if(!(s.color==desc_.color)){
         desc_.color=s.color;
         if(s.color.enabled){
@@ -4359,7 +4693,7 @@ uint32_t EnhanceGraph::actualFlowPerf()const{return nvof_?nvof_->caps().actualPe
 bool EnhanceGraph::vfgFastReady() const { return vfgBackend_&&vfgBackend_->fastReady(); }
 bool EnhanceGraph::fgCreated() const
 {
-    return (vfgBackend_&&vfgBackend_->created()) || fsrActive() || (fgBackend_ && fgBackend_->created());
+    return (vfgBackend_&&vfgBackend_->created()) || fsrActive() || amfFrcActive() || (fgBackend_ && fgBackend_->created());
 }
 
 uint64_t EnhanceGraph::lastNvofSignal() const
@@ -4435,6 +4769,7 @@ void EnhanceGraph::shutdown()
     upFsrSrDepth_.Reset();
     fsrFgBackend_.reset();
     vfgBackend_.reset();
+    amfFrc_.reset();
     if (fgBackend_) featuresReleased=fgBackend_->release()&&featuresReleased;
     if(firstVideoSrBackend_){featuresReleased=firstVideoSrBackend_->release()&&featuresReleased;firstVideoSrBackend_.reset();}
     if(videoSrBackend_){featuresReleased=videoSrBackend_->release()&&featuresReleased;videoSrBackend_.reset();}
@@ -4486,6 +4821,15 @@ void EnhanceGraph::shutdown()
         ngxParams_ = nullptr;
     }
     if (nrAdapter_) {
+        // Same order as nr_harness: features and parameter blocks are gone, so the
+        // snippet shuts down before its IAT shim is restored and the DLL is freed.
+        if (nrSnippetInitialized_) {
+            uint64_t result = 0;
+            uint32_t seh = 0;
+            if (!nrAdapter_->snippetShutdown1(context_.device(), result, seh) || result != uint64_t(NVSDK_NGX_Result_Success))
+                veyra::log::error("graph", std::format("NR snippet Shutdown1 failed result=0x{:X} seh=0x{:X}", result, seh));
+            nrSnippetInitialized_ = false;
+        }
         nrAdapter_->restoreCallerCompatibility();
         nrAdapter_->unload();
     }
@@ -4567,6 +4911,7 @@ void EnhanceGraph::shutdown()
     neuralTex_.Reset();
     proxyTex_.Reset();
     exclusionPass_={};exclusionScratch_.Reset();
+    hudLock_.reset();
     for(auto& r:exclusionVideo_)r.Reset();
     for(auto& r:exclusionUi_)r.Reset();
     for(auto& r:sourceReferences_)r.Reset();for(auto& r:baseReferences_)r.Reset();workRgba_.Reset();

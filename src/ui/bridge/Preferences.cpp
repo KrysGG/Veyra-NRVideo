@@ -1,6 +1,8 @@
 // QML bridge: Preferences responsibilities.
 #include "../QmlPlayerBridge_p.h"
 #include "veyra/ngx/AnrProvider.h"
+#include "veyra/gfx/AmfFrcBackend.h"
+#include "veyra/ui/UpdateChecker.h"
 
 namespace veyra::ui {
 // --- shell preferences -------------------------------------------------------
@@ -80,6 +82,10 @@ QVariantList QmlPlayerBridge::readComponentList() const {
     const auto anrDirectory=ngx::AnrProvider::directory(runtime::localRuntimeDirectory().wstring());
     out<<QVariantMap{{"name",QStringLiteral("ANR FG")},{"detail",QString::fromStdWString(anrDirectory)},
         {"loaded",ngx::AnrProvider::available(runtime::localRuntimeDirectory().wstring())},{"experimental",true}};
+    // AMD FRC: the AMF runtime of the AMD driver, never shipped with Veyra.
+    wchar_t systemDirectory[MAX_PATH]{};GetSystemDirectoryW(systemDirectory,MAX_PATH);
+    out<<QVariantMap{{"name",QStringLiteral("AMD FRC (AMF)")},{"detail",QString::fromWCharArray(systemDirectory)+QStringLiteral("\\amfrt64.dll")},
+        {"loaded",gfx::AmfFrcBackend::runtimeInstalled()}};
     const auto vfgDirectory=pipeline::VfgBackend::runtimeDirectory(runtime::localRuntimeDirectory().wstring());
     const bool vfgAvailable=pipeline::VfgBackend::runtimeAvailable(runtime::localRuntimeDirectory().wstring());
     out<<QVariantMap{{"name",QStringLiteral("NVIDIA VFG")},{"detail",QString::fromStdWString(vfgDirectory)},
@@ -187,18 +193,31 @@ bool QmlPlayerBridge::setPreference(const QString& key, const QVariant& value) {
         {"subtitleSize", {16, 56}}, {"subtitleFont", {0, 5}}, {"subtitleOutline", {0, 3}},
         {"subtitleMargin", {0, 240}}, {"subtitleLines", {0, 8}},
         // 列表模式 parameter panel width (ProPage splitter); QML clamps it to the window.
-        {"listInspectorWidth", {376, 4000}},
+        {"listInspectorWidth", {300, 4000}},
+        // Fork: stats cards height under the picture (0: automatic).
+        {"listMetersHeight", {0, 4000}},
         // Network sources (#48): seconds to collect before the first picture; -1 follows the buffer level.
         {"networkPrebuffer", {-1, 60}},
+        {"networkTimeshift", {0, 600}},
         // Live recording: the target bitrate for the file, and the frame rate
         // cap (0 keeps the presented rate).
         {"recordBitrateMbps", {0, 400}},
         {"recordFps", {0, 240}},
+        {"recordSplitSeconds", {0, 86400}},
+        {"recordSplitMiB", {0, 1048576}},
+        {"virtualCameraFps", {0, 120}},
         // Instant replay (#103): seconds the buffer keeps.
         {"replaySeconds", {15, 600}}};
     static const QStringList flags{"recordHevc", "recordAudio", "recordMic", "recordMicTrack", "replayEnabled", "subtitleEnabled", "subtitleBackground", "subtitleFit",
-                                   "subtitleSecondLanguage", "audioForceStereo", "holdCompare",
-                                   "magewellLowLatency", "blackmagicNativeCapture", "captureShowAllFrameRates", "cinePillHidden", "exportStopsPlayback", "obsGameCapture", "autoResume", "fullscreenMemoryProtection", "prewarmEnhancement", "hdrFgCompatibility", "computeOnMonitorGpu", "deinterlace", "networkAutoReconnect"};
+                                   "subtitleSecondLanguage", "audioForceStereo", "captureAudioMonitor", "holdCompare",
+                                   "magewellLowLatency", "blackmagicNativeCapture", "captureShowAllFrameRates", "cinePillHidden", "exportStopsPlayback", "obsGameCapture", "autoResume", "fullscreenMemoryProtection", "prewarmEnhancement", "hdrFgCompatibility", "dependencyNoticeHidden", "computeOnMonitorGpu", "deinterlace", "networkAutoReconnect",
+                                   // 设置 → 外观 → 启动动画 (the dusk palette's intro, DuskIntro.qml); unset = on.
+                                   "introAnimation",
+                                   // 设置 → 外观 → 启动音乐 and the music button (Main.qml); unset = on.
+                                   "introMusic", "exclusionOverlay",
+                                   // Fork: list-view panel collapsed to a rail, descriptions shown under
+                                   // every setting, and the tuning guide under GPU stages opened.
+                                   "listInspectorCollapsed", "showHints", "stageGuideOpen", "listMetersCollapsed"};
     QVariant stored;
     if (ranges.contains(key)) {
         bool ok = false; const int n = value.toInt(&ok);
@@ -207,6 +226,23 @@ bool QmlPlayerBridge::setPreference(const QString& key, const QVariant& value) {
         stored = n;
     } else if (flags.contains(key)) {
         stored = value.toBool();
+    } else if (key == QLatin1String("listMetersOrder")) {
+        // Fork: the stats cards' left-to-right order, e.g. "rate,signal,stages".
+        const QStringList cards = value.toString().split(QLatin1Char(','));
+        QStringList sorted = cards; sorted.sort();
+        if (!value.toString().isEmpty() && sorted != QStringList{QStringLiteral("rate"), QStringLiteral("signal"), QStringLiteral("stages")}) return false;
+        stored = value.toString();
+    } else if (key == QLatin1String("listMetersWeights")) {
+        // Fork: the stats cards' relative widths, "signal,stages,rate" (empty: default).
+        const QStringList parts = value.toString().split(QLatin1Char(','));
+        if (!value.toString().isEmpty()) {
+            if (parts.size() != 3) return false;
+            for (const auto& part : parts) {
+                bool ok = false; const double w = part.toDouble(&ok);
+                if (!ok || w < 0.05 || w > 20) return false;
+            }
+        }
+        stored = value.toString();
     } else if (key == QLatin1String("nrResidualView") || key == QLatin1String("nrCorrectionView")) {
         const auto view = value.toString();
         if (view != QLatin1String("web") && view != QLatin1String("list")) return false;
@@ -230,6 +266,15 @@ bool QmlPlayerBridge::setPreference(const QString& key, const QVariant& value) {
         // Arrow-key step of a focused slider (设置 → 通用): 1, 0.1 or 0.01.
         bool ok = false; const double v = value.toDouble(&ok);
         if (!ok || !(qFuzzyCompare(v, 1.0) || qFuzzyCompare(v, 0.1) || qFuzzyCompare(v, 0.01))) return false;
+        stored = v;
+    } else if (key == QLatin1String("theme")) {
+        const QString v = value.toString();
+        if (v != QLatin1String("default") && v != QLatin1String("vice")) return false;
+        stored = v;
+    } else if (key == QLatin1String("palette")) {
+        // 设置 → 外观 → 界面配色 (Theme.qml): 日落 or the original 经典 palette.
+        const QString v = value.toString();
+        if (v != QLatin1String("dusk") && v != QLatin1String("classic")) return false;
         stored = v;
     } else if (key == QLatin1String("accent")) {
         const QString v = value.toString();
@@ -274,12 +319,16 @@ bool QmlPlayerBridge::setPreference(const QString& key, const QVariant& value) {
         stored = v;
     } else if (key == QLatin1String("rememberPosition") || key == QLatin1String("dockPinned")) {
         stored = value.toBool();
+    } else if (key == QLatin1String("updateDownloadRoute")) {
+        const auto name = value.toString();
+        if (!portable::parseDownloadRoute(name)) return false;
+        stored = name;
     } else if (key == QLatin1String("language")) {
         const QString v = value.toString();
-        static const QStringList languages{"auto", "zh-CN", "zh-TW", "en", "ja"};
+        static const QStringList languages{"auto", "zh-CN", "zh-TW", "en", "ja", "ko", "es", "fr", "de", "pt-BR", "ru"};
         if (!languages.contains(v)) return false;
         stored = v;
-    } else if (key == QLatin1String("monitorGpu")) {
+    } else if (key == QLatin1String("monitorGpu") || key == QLatin1String("fgGpu")) {
         const QString v = value.toString();
         if (!v.isEmpty() && std::none_of(impl_->gpuAdapters.begin(), impl_->gpuAdapters.end(), [&](const auto& a) { return a.id == v; })) return false;
         stored = v;
@@ -305,6 +354,14 @@ bool QmlPlayerBridge::setPreference(const QString& key, const QVariant& value) {
     return true;
 }
 void QmlPlayerBridge::applyPreference(const QString& key) {
+    if (key == QLatin1String("updateDownloadRoute")) {
+        const auto route = portable::parseDownloadRoute(impl_->prefString("updateDownloadRoute"));
+        static_cast<UpdateChecker*>(updates_)->setDownloadRoute(route.value_or(portable::DownloadRoute::GitHub));
+        return;
+    }
+    if(key==QLatin1String("virtualCameraFps")&&virtualCameraEnabled())setVirtualCameraEnabled(true);
+    if(key==QLatin1String("captureAudioMonitor"))
+        impl_->engine.setCaptureAudioMonitoring(impl_->prefBool("captureAudioMonitor",true));
     // The replay buffer re-arms with what a recording would use.
     static const QStringList replayKeys{"replayEnabled", "replaySeconds", "recordBitrateMbps", "recordFps", "recordHevc",
                                         "recordAudio", "recordMic", "recordMicDevice", "recordMicTrack"};
@@ -320,9 +377,9 @@ void QmlPlayerBridge::applyPreference(const QString& key) {
     }
     if(key==QLatin1String("gpuPriority")){
         const auto value=impl_->prefString("gpuPriority");
-        // Unset means High (user default, 2026-11-13); saved choices stay explicit.
+        // Unset means the default, 实时 (field request 2026-10-05).
         gfx::requestGpuPriority(value==QLatin1String("normal")?gfx::GpuPriority::Normal:
-                                value==QLatin1String("realtime")?gfx::GpuPriority::Realtime:gfx::GpuPriority::High);
+                                value==QLatin1String("high")?gfx::GpuPriority::High:gfx::GpuPriority::Realtime);
     }
     if(key==QLatin1String("overlayCompat"))updateLiveCompanionCompat();
     if(key==QLatin1String("fullscreenMemoryProtection")){impl_->engine.setFullscreenMemoryProtection(impl_->prefBool("fullscreenMemoryProtection",false));emit snapshotChanged();}
@@ -350,6 +407,10 @@ void QmlPlayerBridge::applyPreference(const QString& key) {
             }
             impl_->exportQueue.refresh();
         }
+    }
+    else if (key == QLatin1String("fgGpu")) {
+        impl_->applyFgGpu();
+        if (impl_->snapshot.running) emit notice(tr("Frame generation GPU changed; reopen the video or capture to apply"), false);
     }
     else if (key == QLatin1String("monitorGpu") || key == QLatin1String("computeOnMonitorGpu")) {
         if (key == QLatin1String("monitorGpu")) { impl_->resolveGpuMonitor(); impl_->gpuUtil = -1.0; emit perfChanged(); }
@@ -587,7 +648,6 @@ bool QmlPlayerBridge::openSponsorLink(const QString& id) {
     // The author's pages as the author gave them (2026-10-19); the page shows buttons,
     // never these addresses.
     static constexpr std::pair<const char*, const char*> links[] = {
-        {"bilibili", "https://space.bilibili.com/19500532?spm_id_from=333.1007.0.0"},
         {"douyin", "https://v.douyin.com/9s06Bf2Inqc/"},
         {"x", "https://x.com/likely2002"},
         {"github", "https://github.com/Likely7"},
@@ -640,7 +700,9 @@ bool QmlPlayerBridge::eventFilter(QObject* watched, QEvent* event) {
             // Typing into a text field never compares.
             const QObject* focus = QGuiApplication::focusObject();
             const bool typing = focus && (focus->inherits("QQuickTextInput") || focus->inherits("QQuickTextEdit"));
-            if (!hold.isEmpty() && hold[0].toCombined() == pressed && !typing && impl_->prefBool("holdCompare", true)) {
+            // The walkthrough owns keyboard input, including custom hold-to-compare bindings.
+            const bool onboarding = watched->property("onboardingActive").toBool();
+            if (!hold.isEmpty() && hold[0].toCombined() == pressed && !typing && !onboarding && impl_->prefBool("holdCompare", true)) {
                 const bool down = type == QEvent::KeyPress;
                 if (down != impl_->holdKeyDown) { impl_->holdKeyDown = down; holdOriginal(down); }
                 return true;
@@ -853,8 +915,8 @@ QVariantList QmlPlayerBridge::exportTracks()const{
     for(const auto& track:item->info.tracks){const auto& selection=track.audio?item->media.audio:item->media.subtitles;
         const bool selected=selection.policy==engine::ExportTrackPolicy::All||selection.contains(track.index);
         result<<QVariantMap{{"index",track.index},{"audio",track.audio},{"selected",selected},{"compatible",track.compatible},
-            {"label",QStringLiteral("%1 · %2 · %3%4").arg(track.index).arg(utf8Of(track.codec)).arg(utf8Of(track.language)).arg(track.channels?QStringLiteral(" · %1 声道").arg(track.channels):QString())},
-            {"title",utf8Of(track.title)},{"action",utf8Of(track.action)}};
+            {"label",QStringLiteral("%1 · %2 · %3%4").arg(track.index).arg(utf8Of(track.codec)).arg(utf8Of(track.language)).arg(track.channels?tr(" · %1 声道").arg(track.channels):QString())},
+            {"title",utf8Of(track.title)},{"action",uiText(track.action)}};
     }
     return result;
 }

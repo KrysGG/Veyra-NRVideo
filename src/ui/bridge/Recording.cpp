@@ -40,6 +40,11 @@ engine::RecordingSettings QmlPlayerBridge::recordingOptions() const {
     options.microphone = recordingMicrophone();
     options.microphoneId = recordingMicrophoneId().toStdWString();
     options.microphoneTrack = recordingMicrophoneTrack();
+    options.splitSeconds = uint32_t(std::clamp(impl_->prefInt("recordSplitSeconds", 0), 0, 86400));
+    options.splitBytes = uint64_t(std::clamp(impl_->prefInt("recordSplitMiB", 0), 0, 1048576)) << 20;
+    // NVENC tuning (设置 → 录制): two-pass and psycho-visual AQ, both off by default.
+    options.multipass = uint32_t(std::clamp(impl_->prefInt("recordMultipass", 0), 0, 2));
+    options.psychoAq = impl_->prefBool("recordPsychoAq", false);
     options.replaySeconds = uint32_t(replaySeconds());
     // Tests only: a small memory cap shows what the cap does.
     if (const int mb = qEnvironmentVariableIntValue("VEYRA_TEST_REPLAY_MEMORY_MB"); mb > 0) options.replayMemoryBytes = uint64_t(mb) << 20;
@@ -126,7 +131,7 @@ void QmlPlayerBridge::pollReplay() {
     state["failed"] = live.failed;
     state["error"] = live.error.empty() ? QString() : uiText(live.error);
     state["path"] = QString::fromStdWString(live.path);
-    state["encoder"] = QString::fromStdWString(live.encoder);
+    state["encoder"] = uiText(live.encoder);
     state["audio"] = live.audio;
     state["microphone"] = live.microphone;
     state["microphoneError"] = live.microphoneError.empty() ? QString() : uiText(live.microphoneError);

@@ -1,10 +1,12 @@
 // QML bridge: Core responsibilities.
 #include "QmlPlayerBridge_p.h"
+#include "LiveTranslation.h"
+#include "veyra/sink/AudioGain.h"
 #include "veyra/engine/MicrophoneCapture.h"
+#include "veyra/ui/NvidiaVrrProfileController.h"
 
 namespace veyra::ui {
-namespace {
-bool prepareStartupPreset(const engine::PresetEntry& entry, engine::ChainSession& session,
+namespace {bool prepareStartupPreset(const engine::PresetEntry& entry, engine::ChainSession& session,
                           engine::EnhancementSettings& settings, QString& error) {
     if (!session.select(entry.kind)) {
         error = QObject::tr("默认预设的编辑模式无效");
@@ -58,6 +60,16 @@ bool prepareStartupPreset(const engine::PresetEntry& entry, engine::ChainSession
 QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesystem::path dataDirectory,
                                 QObject* parent)
     : QObject(parent), impl_(std::make_unique<Impl>(engine, std::move(dataDirectory))) {
+    liveTranslation_ = new LiveTranslation(QString::fromStdWString(impl_->dataDir.wstring()), this);
+    connect(this,&QmlPlayerBridge::mediaOpenRequested,this,[this]{
+        liveTranslation_->setPlayback(impl_->snapshot.sessionId, false, true);
+        endExclusionMove(false);impl_->exclusionSelected=-1;beginProtectionDraw(QString{});
+        emit protectionChanged();
+    });
+    auto* vrrProfile = new NvidiaVrrProfileController(impl_->dataDir, this);
+    nvidiaVrrProfile_ = vrrProfile;
+    connect(vrrProfile, &NvidiaVrrProfileController::notice, this, &QmlPlayerBridge::notice);
+    connect(this, &QmlPlayerBridge::preferencesChanged, vrrProfile, &NvidiaVrrProfileController::changed);
     auto* checker = new UpdateChecker(version(), this);
     updates_ = checker;
     connect(checker, &UpdateChecker::notice, this, &QmlPlayerBridge::notice);
@@ -74,22 +86,21 @@ QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesyst
     // The compute GPU decides which effects exist, so it is settled before
     // anything below samples the capabilities or restores the saved chain.
     impl_->loadPrefs();
-    // The last volume (user 2026-11-08: it came back at 100% every launch).
-    // Mute stays per session; profiles without the key keep 100%.
-    if (impl_->prefs.contains(QStringLiteral("volume"))) {
-        bool ok = false;
-        const double saved = impl_->prefs.value(QStringLiteral("volume")).toDouble(&ok);
-        if (ok && std::isfinite(saved) && saved >= 0.0 && saved <= 1.0) {
-            impl_->engine.setVolume(float(saved), false);
-            impl_->snapshot.volume = float(saved);
-            veyra::log::info("ui-prefs", std::format("volume restored={:.3f}", saved));
-        }
-    }
+    impl_->engine.setCaptureAudioMonitoring(impl_->prefBool("captureAudioMonitor",true));
+    // Keep main's established key; also read the PR's key for users of its build.
+    // Missing/invalid settings stay at unity, never an automatic boost.
+    bool volumeOk=false;
+    const auto saved=impl_->prefs.value(impl_->prefs.contains(QStringLiteral("volume"))?QStringLiteral("volume"):QStringLiteral("audioVolume")).toDouble(&volumeOk);
+    const float gain=volumeOk&&std::isfinite(saved)&&saved>=0&&saved<=sink::kMaxAudioGain?float(saved):1.0f;
+    const bool mute=impl_->prefBool("audioMuted",false);
+    impl_->engine.setVolume(gain,mute);impl_->snapshot.volume=gain;impl_->snapshot.muted=mute;
+    veyra::log::info("ui-prefs",std::format("volume restored={:.3f} muted={}",gain,mute));
     applyGameHotkeys();
     syncReplay();
     impl_->enumerateGpuAdapters();
     impl_->resolveGpuMonitor();
     impl_->applyComputeGpu();
+    impl_->applyFgGpu();
     connect(this,&QmlPlayerBridge::snapshotChanged,this,
         [this,ceiling=fgMaxMultiplier(),text=fgProviderText()]() mutable {
             const auto nextCeiling=fgMaxMultiplier();const auto nextText=fgProviderText();
@@ -162,6 +173,7 @@ QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesyst
 #endif
     // Before anything opens: the renderer reads the output choice at start().
     applyPreference(QStringLiteral("language"));
+    applyPreference(QStringLiteral("updateDownloadRoute"));
     applyPreference(QStringLiteral("audioDevice"));
     applyPreference(QStringLiteral("audioForceStereo"));
     applyPreference(QStringLiteral("magewellLowLatency"));
@@ -204,12 +216,29 @@ QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesyst
             // every restart reloads the unavailable DLSS value again.
             impl_->savedSession = savedConfiguration;
             impl_->restoreConfiguration(configuration);
-            impl_->options = engine::PlayerOptions::from(settings,engine::runtimeOrder(impl_->activeRuntime()));
+            impl_->options = engine::PlayerOptions::from(settings,engine::runtimeOrder(impl_->activeRuntime()),&impl_->options);
             impl_->revalidate();
         } else {
             impl_->facade.setPending(previous);
             restoreError = tr("模式会话未被引擎接受，保留初始状态");
         }
+    }
+    // Custom: the Dolby Vision follow is a viewing preference rather than part of
+    // the grade, so it is stored in the shell preferences and re-applied here -
+    // after the restored session has reached the engine, so it wins over a value
+    // the session round trip never carried.
+    if (impl_->prefBool("doviFollow", false) && !settings().doviFollow) {
+        auto followed = settings();
+        followed.doviFollow = true;
+        commitHdrTuning(std::move(followed));
+    }
+    // The P7 composite is its own preference. It used to be restored inside the
+    // doviFollow branch above, so a profile without that flag could never turn it
+    // on no matter what the preferences said.
+    if (impl_->prefBool("doviP7Compose", false) && !settings().doviP7Compose) {
+        auto composed = settings();
+        composed.doviP7Compose = true;
+        commitHdrTuning(std::move(composed));
     }
     bool defaultFlowApplied = false;
     if (!restoreError.isEmpty()) {
@@ -237,7 +266,7 @@ QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesyst
                 impl_->session = candidate;
                 impl_->restoreConfiguration(candidate.configurations[size_t(candidate.active)]);
                 impl_->revalidate();
-                impl_->options = engine::PlayerOptions::from(settings, engine::runtimeOrder(impl_->activeRuntime()));
+                impl_->options = engine::PlayerOptions::from(settings, engine::runtimeOrder(impl_->activeRuntime()),&impl_->options);
                 defaultFlowApplied = entry.flow.has_value() &&
                     (entry.contents & engine::presetContentMask(engine::PresetContent::Flow));
                 if (defaultFlowApplied) {
@@ -278,6 +307,19 @@ QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesyst
         if (p.contains(QStringLiteral("vfgAutoRegulate"))) {
             const bool on = p.value(QStringLiteral("vfgAutoRegulate")).toBool();
             if (s.vfgAutoRegulate != on) { s.vfgAutoRegulate = on; changed = true; }
+        }
+        // Adaptive multiplier, frame pacing repair and Live HUD Lock (from PushFPS).
+        if (p.contains(QStringLiteral("fgAdaptive"))) {
+            const bool on = p.value(QStringLiteral("fgAdaptive")).toBool();
+            if (s.fgAdaptive != on) { s.fgAdaptive = on; changed = true; }
+        }
+        if (p.contains(QStringLiteral("pacingRepair"))) {
+            const bool on = p.value(QStringLiteral("pacingRepair")).toBool();
+            if (s.pacingRepair != on) { s.pacingRepair = on; changed = true; }
+        }
+        if (p.contains(QStringLiteral("hudLock"))) {
+            const bool on = p.value(QStringLiteral("hudLock")).toBool();
+            if (s.hudLock != on) { s.hudLock = on; changed = true; }
         }
         if (!defaultFlowApplied && p.contains(QStringLiteral("contentRate"))) {
             const int rate = p.value(QStringLiteral("contentRate")).toInt();
@@ -373,6 +415,7 @@ QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesyst
         if(wasSession!=impl_->snapshot.sessionId||oldSourceAspect!=sourceAspect())emit compareChanged();
         // Live recording state: the recorder owns the files, this side shows them.
         {
+            pollVirtualCamera();
             const auto live=impl_->engine.recordingSnapshot();
             QVariantMap state;
             state["active"]=live.active;
@@ -381,7 +424,7 @@ QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesyst
             state["path"]=QString::fromStdWString(live.path);
             state["error"]=live.error.empty()?QString():uiText(live.error);
             state["note"]=live.note.empty()?QString():uiText(live.note);
-            state["encoder"]=QString::fromStdWString(live.encoder);
+            state["encoder"]=uiText(live.encoder);
             state["frames"]=QVariant::fromValue(qulonglong(live.frames));
             state["dropped"]=QVariant::fromValue(qulonglong(live.dropped));
             state["seconds"]=live.seconds;
@@ -424,6 +467,7 @@ QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesyst
             else emit notice(tr("显存在设置未变时增加了 %1 GB，正在尝试回收；回收结果见诊断日志。原因尚未确认。")
                                  .arg(impl_->snapshot.vramRunawayMiB / 1024.0, 0, 'f', 1), true);
         }
+        updateMaskOverlay();
         tickSubtitles();
         tickImageBatch();
         tickCapture();
@@ -486,6 +530,14 @@ QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesyst
                     s.sessionId, int(s.transport), s.running, s.image, s.failed,
                     impl_->openingSource, impl_->publishedRevision));
             impl_->power.update(s.running && !s.failed && !s.image && s.transport == engine::TransportState::Playing);
+            // Custom (format badge): announce the source format once per session,
+            // when the picture actually starts. `frames > 0` matters: the transport
+            // flips to Playing when the source opens, which is before the first
+            // frame carried its dynamic metadata, so announcing there would say
+            // "SDR" for an HDR Vivid or HDR10+ stream.
+            if (s.transport == engine::TransportState::Playing && !s.image && !s.failed &&
+                s.frames > 0 && impl_->formatBadgeSession != s.sessionId)
+                showFormatBadge(s);
             if (had && !wasFailed && s.failed && !s.capture && !s.remotePlay &&
                 impl_->prefString("decode") == QLatin1String("hardware"))
                 emit notice(tr("已设为“强制硬解”，这个文件无法用硬件解码打开；可在 设置 → 播放 改回“自动”"), true);
@@ -536,6 +588,8 @@ QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesyst
                     impl_->netLossNoticeAt = now;
                 }
             }
+            // 「自动」倍率：每个会话进入播放后决定一次（见 applyFgAutoMultiplier）。
+            maybeApplyFgAutoMultiplier();
             emit snapshotChanged();
         }
         // The reconnect waits for the failed session's teardown (the GPU reset can hold it for
@@ -679,8 +733,11 @@ QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesyst
     // Unsupported saved FG choices were repaired together with both modes
     // above, using actual provider availability rather than a brand alone.
 }
+QObject* QmlPlayerBridge::liveTranslation() const { return liveTranslation_; }
 
 QmlPlayerBridge::~QmlPlayerBridge() {
+    // Before anything is torn down: this reads the playback position.
+    // The overlay is a child window: it has to go before the video window does.
     flushHdrMemory();
     if (qApp) qApp->removeEventFilter(this);
     if (qApp) qApp->removeNativeEventFilter(&impl_->displayChangeFilter);

@@ -13,6 +13,8 @@
 #include <vector>
 #include "veyra/engine/FrameRateWindow.h"
 #include "veyra/engine/FrameFlowWindow.h"
+#include "veyra/engine/ProviderSubmissionCounter.h"
+#include "veyra/ui/MaskGeometry.h"
 #include "veyra/engine/PresentationScheduler.h"
 #include "veyra/engine/PresentationSettings.h"
 #include <cmath>
@@ -24,6 +26,20 @@ int main(){
     int failed=0;
     auto check=[&](bool ok,const char* label){printf("%s %s\n",ok?"PASS":"FAIL",label);if(!ok)++failed;};
     using veyra::engine::CaptureHalfRate;
+    {
+        using namespace veyra;
+        const engine::ProtectionRect region{.1f,.2f,.45f,.65f,false};
+        for(unsigned turn=0;turn<4;++turn)for(int mode:{0,1,2,3,4,5,6})for(float zoom:{.6f,1.f,2.4f}){
+            engine::PreviewView view;view.userQuarterTurns=turn;view.mode=mode;view.zoom=zoom;view.centerX=.35f;view.centerY=.62f;
+            const auto b=ui::mask::hostBounds(region,view,1100,700,1920,1080);
+            const auto center=view.sourcePoint((b[0]+b[2])*.5f,(b[1]+b[3])*.5f,1100,700,1920,1080);
+            check(std::abs(center.first-.275f)<1e-5f&&std::abs(center.second-.425f)<1e-5f,"mask overlay inverse matches presenter under rotation/aspect/zoom/pan");
+        }
+        const auto edge=ui::mask::moved(region,5,-5);
+        check(std::abs(edge.right-1)<1e-6f&&std::abs(edge.top)<1e-6f&&std::abs((edge.right-edge.left)-.35f)<1e-6f,"drag clamps to source boundary preserving region size");
+        auto ellipse=region;ellipse.ellipse=true;
+        check(!ui::mask::contains(ellipse,.101f,.201f)&&ui::mask::contains(ellipse,.275f,.425f),"ellipse selection rejects bounding-box corners");
+    }
     for(int64_t interval:{166667LL,333333LL}){
         veyra::engine::PresentationScheduler scheduler;
         veyra::engine::PresentationCadence cadence;
@@ -81,13 +97,46 @@ int main(){
         check(run([](int i){return uint64_t(i-i/4);},0,600,fortyFive)==0&&fortyFive.size()==300,"irregular content keeps the plain grid");
         // A still screen is no evidence that the half-rate grid sits on second
         // copies. Resuming with true 60 fps must not insert an extra sample.
+        // The still starts with a hitch window (samples 242-244 repeat the
+        // picture kept at 240 and are skipped); from 245 it is held on the grid:
+        // 120 moving + 89 still + 150 at 60 fps.
         CaptureHalfRate still;unsigned stillKept=0;
         for(int i=0;i<720;++i){
             const uint64_t id=i<240?uint64_t(i/2):i<421?1000:uint64_t(1000+i-420);
             stillKept+=still.accept(i*dt,dt,false,&id);
         }
-        check(still.shifts()==0&&stillKept==360,
+        check(still.shifts()==0&&stillKept==359&&still.repeatsSkipped()==CaptureHalfRate::kHitchSlots-2,
               "half-rate still-to-60 transition does not mistake a hold for second-copy phase");
+        // Below 30 (issue #152): a 30 fps-capped game at 29-24 fps shows its
+        // pictures two or three times. The plain grid kept 31-32 per second,
+        // several of them the picture it had just kept, which frame generation
+        // turned into stalls. Each picture is now kept exactly once and kept
+        // samples are never adjacent.
+        for(double fps:{29.0,28.0,26.0,24.0})for(bool sequenced:{true,false}){
+            CaptureHalfRate sampler;std::vector<uint64_t> keptIds;int last=-2;bool spaced=true;
+            constexpr int samples=1200;
+            for(int i=0;i<samples;++i){
+                const uint64_t id=uint64_t(i*fps/60);
+                if(sampler.accept(i*dt+(sequenced?0:(i%3-1)*1000),dt,false,&id,sequenced?uint64_t(i+1):0)){
+                    spaced&=i-last>=2;last=i;keptIds.push_back(id);
+                }
+            }
+            bool once=true;for(size_t n=0;n<keptIds.size();++n)once&=keptIds[n]==n;
+            const auto pictures=uint64_t((samples-1)*fps/60)+1;
+            check(once&&keptIds.size()+1>=pictures&&spaced&&sampler.shifts()==0,
+                  "below-30 content keeps each picture once, never a repeat or an adjacent sample");
+        }
+        {
+            // A freeze past the hitch window (picture 20 on samples 40-47) is
+            // held on the grid from kHitchSlots after its keep, as a still screen.
+            CaptureHalfRate sampler;std::vector<int> repeats;uint64_t lastKept=~0ull;
+            for(int i=0;i<120;++i){
+                const uint64_t id=i<40?uint64_t(i/2):i<48?20:uint64_t(21+(i-48)/2);
+                if(sampler.accept(i*dt,dt,false,&id,uint64_t(i+1))){if(id==lastKept)repeats.push_back(i);lastKept=id;}
+            }
+            check(repeats==std::vector<int>{45,47}&&sampler.repeatsSkipped()==3&&sampler.repeatsHeld()==2,
+                  "a freeze longer than the hitch window is held on the grid");
+        }
     }
     check(!CaptureHalfRate::supported(30)&&!CaptureHalfRate::supported(18)&&!CaptureHalfRate::supported(120)&&CaptureHalfRate::supported(59.94),"60-to-30 setting does not halve other transport modes");
     {
@@ -116,6 +165,40 @@ int main(){
     check(std::abs(rate.rate(30000000)-30)<.01,"30 real completions are not multiplied by FG");
     rate.reset(0);for(int i=1;i<=1000;++i)rate.complete(i*10000);
     check(rate.rate(10000000)==1000,"completion rate has no 60 or 120fps cap");
+    {
+        using veyra::engine::ProviderSubmissionCounter;
+        ProviderSubmissionCounter counter;
+        auto d=counter.observe(7,52,39);
+        check(d.presented==52&&d.generated==39&&!d.restarted,"first provider report counts its real completions");
+        d=counter.observe(8,1,0);
+        check(d.presented==1&&d.generated==0&&d.restarted,"resize with unchanged settings never subtracts old XeSS totals");
+        d=counter.observe(8,4,3);
+        check(d.presented==3&&d.generated==3&&!d.restarted,"new provider session advances from its own baseline");
+        d=counter.observe(8,0,0);
+        check(d.presented==0&&d.generated==0&&d.restarted,"provider-local resize rollback is safe without a presenter generation change");
+        counter.reset(8,100,75);d=counter.observe(8,104,75);
+        check(d.presented==4&&d.generated==0,"settings revision baseline excludes previously reported provider totals");
+        d=counter.observe(8,104,78);
+        check(d.presented==0&&d.generated==3,"asynchronous generated-only report is consumed independently");
+        d=counter.observe(9,200,150);
+        check(d.presented==200&&d.generated==150&&d.restarted,"session generation catches a restart even when new totals exceed old totals");
+        d=counter.observe(10,0,0);d=counter.observe(10,4,3);
+        check(d.presented==4&&d.generated==3,"backend off and on starts a fresh bounded delta");
+        veyra::engine::CountedFrameRateWindow counted;counted.reset(0);
+        for(int i=1;i<=60;++i)counted.complete(i*166666,4);
+        check(std::abs(counted.rate(10000000)-240)<.01,"weighted provider rate preserves actual 4X reports");
+        check(counted.rate(15000000)==120&&counted.rate(20000000)==0,"weighted reports expire without fabricating output");
+        constexpr uint64_t fieldRemaining=0xffffffff7f04d88bULL; // saved R15 in the 21:05:46 dump
+        counted.reset(0);counted.complete(10000000,fieldRemaining);
+        check(std::isfinite(counted.rate(10000000))&&counted.rate(20000000)==0,"near-UINT64_MAX SDK report does bounded work and expires");
+        veyra::engine::FrameCompletionRates rates(0);
+        const auto begin=std::chrono::steady_clock::now();
+        rates.xess(fieldRemaining,10000000);
+        veyra::diagnostics::FrameFlowMetrics metrics;rates.snapshot(metrics,10000000);
+        check(std::chrono::steady_clock::now()-begin<std::chrono::milliseconds(500)&&std::isfinite(metrics.xessSdkSubmitFps),"actual FrameCompletionRates consumes the field underflow value without a CPU loop");
+        rates.snapshot(metrics,20000000);
+        check(metrics.xessSdkSubmitFps==0,"provider report cannot pin measured FPS after the source stops");
+    }
     using veyra::source::captureDuration;using veyra::engine::liveSourceInterval100ns;
     using veyra::source::captureDiscontinuity;
     {
@@ -314,6 +397,12 @@ int main(){
         check(std::abs(liveSmoothedCapacityWaitMs(16.68,.48)-2.5)<.01,"sd 0.6 ms (mean distance 0.48 ms) waits 2.5 ms");
         check(liveSmoothedCapacityWaitMs(16.68,1.5)==3&&liveSmoothedCapacityWaitMs(33.4,20)==3,"and nothing waits more than 3 ms");
         check(liveSmoothedCapacityWaitMs(4.17,5)==2&&liveSmoothedCapacityWaitMs(8.33,5)==liveSmoothedCapacityWaitMs(8.33)&&liveSmoothedCapacityWaitMs(12.4,5)==liveSmoothedCapacityWaitMs(12.4),"above 80 fps the wait ignores the jitter");
+        using veyra::engine::liveHalfRateCapacityWaitMs;
+        check(std::abs(liveHalfRateCapacityWaitMs(2,16.68,8.33,16.68)-7.85)<.01,"59.94 on 120 Hz can wait with a refresh left for the real frame");
+        check(liveHalfRateCapacityWaitMs(2,16.68,8.33,8.7)==2,"a late pair gets only the regular wait");
+        check(liveHalfRateCapacityWaitMs(2,16.68,16.67,16.68)==2,"60 Hz keeps the existing wait");
+        check(liveHalfRateCapacityWaitMs(2,16.68,0,16.68)==2,"unknown refresh keeps the existing wait");
+        check(liveHalfRateCapacityWaitMs(2,16.68,3.125,16.68)==3.125,"fast refresh waits at most one refresh");
         const auto measuredJitter=[&](double sdMs){
             LiveArrivalSmoother smoother;uint32_t seed=7;
             for(unsigned n=0;n<2000;++n)smoother.anchor(int64_t(n*333643.0*(1-800e-6)),int64_t(n*333643.0+40000+gaussian(seed,sdMs*10000)),interval);
