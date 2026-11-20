@@ -22,6 +22,7 @@ Rectangle {
     property string switchObjectName: ""
     property bool on: true
     property bool open: false
+    property bool instantExpansion: false
     // [{ label, count, open }] — nested groups, as the design draws them.
     property var groups: []
     // Fork: what this feature is for and how to troubleshoot it, behind a round "i".
@@ -84,10 +85,11 @@ Rectangle {
     // Optional actions stay in the header; ordinary accordions remain unchanged.
     property alias headerActions: headerTools.data
     property alias headerLeadingActions: leadingTools.data
+    readonly property alias headerItem: header
     property bool compactHeader: false
     property bool bypassed: false
 
-    readonly property int headerHeight: compactHeader ? 42 : 48
+    readonly property int headerHeight: Math.max(compactHeader ? 42 : 48, headerText.implicitHeight + 10)
     // Space between the header's hairline and the first body row: a body that
     // starts with buttons or text (NR 层's 复制此层 row) sat on the line itself
     // (field report 2026-10-05).
@@ -98,7 +100,10 @@ Rectangle {
     border.width: 1
     border.color: open ? Theme.stroke2 : Theme.stroke
     Behavior on border.color { ColorAnimation { duration: Theme.d(250) } }
-    Behavior on implicitHeight { NumberAnimation { duration: Theme.d(500); easing.bezierCurve: Theme.springSoft } }
+    Behavior on implicitHeight {
+        enabled: !acc.instantExpansion
+        NumberAnimation { duration: Theme.d(500); easing.bezierCurve: Theme.springSoft }
+    }
     clip: true
 
     ColumnLayout {
@@ -109,6 +114,7 @@ Rectangle {
 
         // --- header ------------------------------------------------------
         Item {
+            id: header
             Layout.fillWidth: true
             Layout.preferredHeight: acc.headerHeight
 
@@ -140,6 +146,8 @@ Rectangle {
                 }
 
                 ColumnLayout {
+                    id: headerText
+                    Layout.minimumWidth: 0
                     Layout.fillWidth: true
                     spacing: 2
                     // Fork: the round "i" sits right after the title.
@@ -156,7 +164,7 @@ Rectangle {
                             font.family: Theme.fontUi
                             font.pixelSize: 13
                             font.weight: Font.DemiBold; font.variableAxes: Theme.axesDemiBold
-                            elide: Text.ElideRight
+                            wrapMode: Text.Wrap
                         }
                         VInfo {
                             id: headerInfo
@@ -176,7 +184,8 @@ Rectangle {
                         color: Theme.t3
                         font.family: Theme.fontUi
                         font.pixelSize: 11
-                        elide: Text.ElideRight
+                        Layout.minimumWidth: 0
+                        wrapMode: Text.Wrap
                     }
                 }
 
@@ -230,10 +239,10 @@ Rectangle {
             property real dy: acc.open ? 0 : -6
             opacity: acc.open ? (acc.bypassed ? 0.45 : 1) : 0
             transform: Translate { y: body.dy }
-            Behavior on opacity { SequentialAnimation {
+            Behavior on opacity { enabled: !acc.instantExpansion; SequentialAnimation {
                 PauseAnimation { duration: acc.open ? Theme.d(60) : 0 }
                 NumberAnimation { duration: Theme.d(200) } } }
-            Behavior on dy { SequentialAnimation {
+            Behavior on dy { enabled: !acc.instantExpansion; SequentialAnimation {
                 PauseAnimation { duration: acc.open ? Theme.d(60) : 0 }
                 NumberAnimation { duration: Theme.d(450); easing.bezierCurve: Theme.spring } } }
 

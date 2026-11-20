@@ -17,7 +17,7 @@ VRow {
     Component.onCompleted: if(currentMode!==0)lastMode=currentMode
     label: qsTr("去除重复帧")
     info: qsTr("A PS5 game locked to 30 fps is sent over HDMI at 60 Hz, so every frame arrives twice. Removing the duplicates lets frame generation work from the 30 real frames, which gives smoother motion. Automatic detects duplicates; 60→30 simply keeps every other frame.")
-    hint: showHelp?qsTr("60→30：固定每两帧保留一帧。自动去除：检测并跳过重复画面。"):""
+    hint: showHelp?qsTr("60→30：每两帧保留一帧，游戏不足30帧时跳过重复画面。自动去除：检测并跳过重复画面。"):""
     hintBelow: true
     RowLayout {
         spacing: 8

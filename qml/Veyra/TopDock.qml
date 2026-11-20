@@ -187,6 +187,7 @@ Item {
                             VIcon {
                                 anchors.centerIn: parent
                                 name: btn.modelData.icon
+                                strokeWidth: 1.7
                                 color: "#FFFFFF"
                                 opacity: dockRoot.currentPage === btn.modelData.id || tip.on ? 1.0 : 0.45
                                 Behavior on opacity { NumberAnimation { duration: Theme.d(200) } }

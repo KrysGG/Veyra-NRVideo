@@ -367,6 +367,10 @@ struct EnhancementSettings {
     //     frame at 6X against 1.4.0 hitting the full 3.0 of 3 at 4X.
     // Users reported 1.4.0 feeling better, so the looser rule is the default.
     bool fgStrictAdmission=false;
+    // 自动选择倍率开关（2026-10-24）：开启时 multiplier 只是占位/上次手动值，
+    // 实际档位在运行期由 displayFgAutoMultiplier(backend, 源帧率, 输出上限) 算出；
+    // 关闭时按 multiplier 走作者原版逻辑。只对 DLSS 和 VFG 开放。
+    bool fgAutoMultiplier=false;
     bool captureCompatible=false;
     // Capture audio ingress; requires a reconnect to take effect (the media type
     // is negotiated when the graph is built).
@@ -390,6 +394,33 @@ struct EnhancementSettings {
     // live: the curve reaches the present blit and the metadata the display.
     HdrCurveSettings hdrCurve;
     HdrMetadataSettings hdrMetadata;
+    // Custom: follow the Dolby Vision RPU level 1 for the highlight start. Live,
+    // and deliberately a separate switch: it only moves where the curve's
+    // roll-off starts per frame, so the user keeps every other dial. Meaningless
+    // while `hdrCurve.enabled` is off, which is why the UI pairs the two.
+    //
+    // Kept off by default on purpose. A static curve is the predictable baseline;
+    // the follow re-derives the highlight start from each frame's L1, and Veyra only
+    // has L1 (no L2 trim passes, no CM v4.0 L8), so it is an approximation of what a
+    // Dolby display would do. Users who want it can turn both switches on; leaving it
+    // on by default would silently re-shade every Dolby Vision film.
+    bool doviFollow=false;
+    // Custom: also let the frame's average brightness move the knee, the way
+    // libplacebo's st2094_pick_knee does. Off keeps the previous peak-only curve.
+    bool doviFollowAverage=false;
+    // Custom (P5): decode and composite the Dolby Vision profile 7 enhancement
+    // layer instead of playing the base layer alone.
+    //
+    // Off by default: turning it on changes the picture, adds a second software
+    // decoder (4-8 ms per frame at 1080p) and only means anything for a source that
+    // reports profile 7 with an enhancement layer present - everything else never
+    // enters the path. Measured on a real UHD remux, 98.5% of frames carry a mapping
+    // this build can evaluate; the rest keep the base layer for that frame instead of
+    // being approximated. (An earlier note here claimed the layer only decodes "a few
+    // percent" of frames and that no frame matched its base frame - both were
+    // measured before the splitter moved to FFmpeg's dovi_split, and neither is true
+    // now.)
+    bool doviP7Compose=false;
     bool useHdrPreview(bool hdrInput,bool hdrDisplayActive)const{return (hdrInput||videoHdr.enabled)&&hdrDisplayActive&&!forceSdrPreview;}
     pipeline::SrTarget srTarget=pipeline::SrTarget::Uhd4K;
     uint32_t videoSrQuality=kDefaultVideoSrQuality; // 0 DLSS SR; 5 FSR; RTX Video SR family/tier values (videoSrFamily)
@@ -467,7 +498,18 @@ struct EnhancementSettings {
     // UI "VFG 自动调控": live 2X VFG runs a pair with the next faster model when the
     // chosen one would miss its refresh or the budget (LivePresentationTiming.h).
     // A global control kept in shell preferences.
-    bool vfgAutoRegulate=true;
+    bool vfgAutoRegulate=true;  // Fork default: on
+    // UI "自适应倍率" (engine/AdaptiveFgMultiplier.h, from PushFPS): the multiplier is a
+    // ceiling and each source pair uses the one whose output lands closest to the target.
+    // Changes only the per-pair multiplier, never the graph, so the configuration
+    // comparisons below leave it out. A global control kept in shell preferences.
+    bool fgAdaptive=false;
+    // UI "帧节奏修复" (engine/FramePacingRepair.h, from PushFPS): even times for a locked
+    // game whose frames arrive unevenly (17/50 ms). Re-times frames on the engine thread only.
+    bool pacingRepair=false;
+    // UI "HUD 自动锁定" (pipeline/HudLock.h, from PushFPS): a per-pixel HUD mask found every
+    // frame and kept out of graph frame generation. Its passes exist only when on.
+    bool hudLock=false;
     ContentRate content=ContentRate::Transport;
     AudioSyncMode audioSync=AudioSyncMode::Automatic;
     int32_t audioOffsetMs=0;
@@ -527,12 +569,11 @@ struct EnhancementSettings {
         if(!nr)active.nrReuse=defaults.nrReuse;
         if(!hdrCurve.enabled){
             active.hdrCurve=defaults.hdrCurve;
-            // Display peak also rescales enabled HDR10 metadata, independently
-            // of the pixel curve's switch (resolveHdrTuning).
-            if(hdrMetadata.enabled&&(hdrMetadata.masteringPeakNits||hdrMetadata.maxCllNits||hdrMetadata.maxFallNits))
-                active.hdrCurve.displayPeakNits=hdrCurve.displayPeakNits;
         }
-        if(!hdrMetadata.enabled)active.hdrMetadata=defaults.hdrMetadata;
+        // HDR10 static metadata is gone: the card and the send path were removed
+        // because it never changed a pixel and its swapchain call recomposites the
+        // screen. A session saved while it existed must not resurrect it.
+        active.hdrMetadata=defaults.hdrMetadata;
         // Flow is shared. Turning off one effect does not make it inactive
         // while another consumer still needs it (VFG has its own flow).
         const bool flowUsed=usesDlaa()||(nr&&(motionUsesFlow(nrMotion)||usesNrTemporal()))||
@@ -545,12 +586,18 @@ struct EnhancementSettings {
             active.fgMotionRefine=defaults.fgMotionRefine;
         if(!(multiplier>1&&frameGenerationBackend==FrameGenerationBackend::Dlss))active.dlssgLite=defaults.dlssgLite;
         if(!(multiplier>1&&frameGenerationBackend==FrameGenerationBackend::Vfg))active.vfgAutoRegulate=defaults.vfgAutoRegulate;
+        if(!(multiplier>2))active.fgAdaptive=defaults.fgAdaptive;
+        if(!(multiplier>1))active.pacingRepair=defaults.pacingRepair;
+        // XeSS generates inside its own presenter; HUD Lock works on graph frame generation.
+        if(!(multiplier>1&&frameGenerationBackend!=FrameGenerationBackend::XeSS))active.hudLock=defaults.hudLock;
         return active;
     }
     bool sameActiveVideoParameters(const EnhancementSettings& other) const {
         auto active=activeVideoSettings();const auto target=other.activeVideoSettings();
         active.revision=target.revision;active.audioSync=target.audioSync;active.audioOffsetMs=target.audioOffsetMs;
         active.captureFlipVertical=target.captureFlipVertical;active.exportBitrateMbps=target.exportBitrateMbps;
+        // Read by the engine loop each pair; no graph update or NR history reset.
+        active.fgAdaptive=target.fgAdaptive;active.pacingRepair=target.pacingRepair;
         return active==target;
     }
     bool sameVideoConfiguration(const EnhancementSettings& other) const {
@@ -564,6 +611,9 @@ struct EnhancementSettings {
         // Export-only fields: changing the bitrate must never invalidate the
         // running preview graph (the controller would otherwise rebuild it).
         video.exportBitrateMbps=target.exportBitrateMbps;
+        // Adaptive multiplier and pacing repair: chosen per pair inside the running graph.
+        video.fgAdaptive=target.fgAdaptive;
+        video.pacingRepair=target.pacingRepair;
         // Colour grade: parameters are uniform-only (never a rebuild), but the
         // master switch changes the graph shape, so it stays in the comparison.
         const auto oldColor=video.color;const auto oldAdditional=video.additionalColors;

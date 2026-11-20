@@ -2,6 +2,30 @@
 
 本次汇总 **公开版2.1.6之后** 的全部功能、修复和兼容调整。2.1.7/2.1.8未单独发布，直接升级至2.1.9。
 
+### 💜 Community Support / 社区支持
+
+**English**
+
+A huge thank you to the Pump.fun community for supporting Veyra!
+
+I've received creator fees from a community-created Veyra token. These contributions will help support the continued development of Veyra.
+
+**中文**
+
+非常感谢 Pump.fun 社区对 Veyra 的支持！
+
+我已经从社区自行创建的 Veyra 代币中领取了创作者手续费。这些收入将帮助支持 Veyra 的持续开发。
+
+**Token Contract Address (CA) / 代币合约地址：**
+
+`i6Aop7z5qLaY47kseaoUt6kGq4Pi2ySg8j7cxRkpump`
+
+**Disclaimer / 免责声明：** This token was independently created by the community and is not an official Veyra release or investment recommendation. Veyra remains free and open-source.
+
+该代币由社区独立创建，并非 Veyra 官方发行的代币，也不构成投资建议。Veyra 仍然是免费开源软件。
+
+---
+
 ## 日落界面、启动动画与音乐
 
 - 新增默认的**日落配色**、新版霓虹手柄Logo与Veyra NR字标、分层启动动画；设置→外观可切回经典配色，也可单独关闭启动动画。经典配色保留原有取值。
@@ -63,7 +87,7 @@
 
 - 按Veyra实际使用的显卡选择NVIDIA或AMD完整便携包，完整解压到新的可写目录，运行`veyra_qml_ui.exe`；只需一个运行包，源码包用于重编译。
 - 原有明确保存的设置继续保留。启动音乐：角落按钮只停止本次；要一直关闭，请到设置→外观关闭启动音乐。
-- 最新交流群换为**12群**，原图标注于**2026-11-22前有效**；赞助、Discord、作者主页和英中教程保留，英文视频从零开始播放。
+- 最新交流群换为**13群**，原图标注于**2026-11-23前有效**；赞助、Discord、作者主页和英中教程保留，英文视频从零开始播放。
 
 ## English
 
@@ -79,4 +103,4 @@
 - **AMD:** added driver-backed AMF FRC 2X. New RX9000 configurations prefer FSR4 ML; unavailable/failed ML falls back to FSR3.1 2X in preview with an explicit notice. Saved FSR3.1 choices remain; export does not silently substitute backends. RX9000 ML and discrete AMD hardware coverage remain limited.
 - **Evidence:** component tests 209/0/0; eight same-profile launch cycles; original audio ends once around 115.8 s; 12 WGC resize transitions; actual region dragging and screenshot/record checks; AMD iGPU synthetic FRC midpoint checks 45/45, maximum 0.5 px error. These are module/stage checks, not a general game-FPS or optical-latency claim.
 
-Choose one complete NVIDIA/AMD portable package for the GPU used by Veyra and extract into a new writable folder. All 88 shaders, notices/manifests and runtime identities are checked. Source assets and fixed dependency-source links are provided separately. ANR beta binaries remain excluded. Previous 2.1.6 dedup/60→30/NV12, replay/microphone and default-setting changes are preserved, not counted again as new work. Community QR updated to group 12, valid before 2026-11-22.
+Choose one complete NVIDIA/AMD portable package for the GPU used by Veyra and extract into a new writable folder. All 88 shaders, notices/manifests and runtime identities are checked. Source assets and fixed dependency-source links are provided separately. ANR beta binaries remain excluded. Previous 2.1.6 dedup/60→30/NV12, replay/microphone and default-setting changes are preserved, not counted again as new work. Community QR updated to group 13, valid before 2026-11-23.

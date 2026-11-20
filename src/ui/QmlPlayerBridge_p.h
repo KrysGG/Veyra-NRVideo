@@ -6,6 +6,7 @@
 #include "veyra/gfx/PresentSink.h"
 #include "veyra/gfx/NvidiaVrr.h"
 #include "veyra/media/NetworkInput.h"
+#include "veyra/media/FormatBadgeWindow.h"
 #include "veyra/ngx/DlssgLite.h"
 #include "veyra/RuntimePaths.h"
 #include "veyra/ui/GamePassthrough.h"
@@ -208,6 +209,10 @@ struct QmlPlayerBridge::Impl {
     engine::EngineController& engine;
     PlayerUiFacade facade;
 
+    // Announce the format when a new source first delivers a picture.
+    std::unique_ptr<media::FormatBadgeWindow> formatBadge;
+    uint64_t formatBadgeSession = 0;
+
     // Last published snapshot and the revision it came from. Polling compares
     // revisions, so an unchanged snapshot costs one comparison per tick.
     engine::PlayerSnapshot snapshot;
@@ -273,7 +278,7 @@ struct QmlPlayerBridge::Impl {
     int thumbnailGeneration = 0;
     // The live source kind and label ("" for a file), for the page headers.
     QString liveKind, liveLabel;
-    // A live open waiting for the 极简 switch to settle (openAfterCinema); the
+    // A live open waiting for the destination page to settle; the
     // generation lets a newer open or a stop cancel it.
     int liveOpenGen = 0;
     QString pendingLiveText;
@@ -324,6 +329,7 @@ struct QmlPlayerBridge::Impl {
     QString currentPage;
     std::wstring captureDevice;
     QString screenTarget;
+    bool screenCropPreview = false;
     QString remotePlayHost, remotePlayPin;
 
     QTimer* timer = nullptr;
@@ -369,6 +375,7 @@ struct QmlPlayerBridge::Impl {
     QVariantMap prefs;
     // Live recording state published by the engine (see LiveRecorder.h).
     QVariantMap recordingState;
+    QVariantMap virtualCameraState;
     uint64_t recordingSaved = 0;   // LiveRecorder's finished-file counter already announced
     QVariantMap replayState;       // the instant replay buffer (#103)
     uint64_t replaySaved = 0;      // its saved-clip counter already announced
@@ -646,19 +653,28 @@ struct QmlPlayerBridge::Impl {
     uint64_t aspectSession = 0;
     std::jthread gpuSampler;                 // joined before gpuUtil goes away
     std::filesystem::path prefsFile() const { return dataDir / L"qml-preferences.v1.json"; }
+    // The file exists but was not read (locked by antivirus/OneDrive, or damaged):
+    // saving the in-memory defaults would replace every saved setting with them.
+    bool prefsUnreadable = false;
     void loadPrefs() {
         QFile file(QString::fromStdWString(prefsFile().wstring()));
         if (!file.exists()) return;
-        if (!file.open(QIODevice::ReadOnly)) { veyra::log::warn("ui-prefs", "qml preferences unreadable; defaults used"); return; }
+        if (!file.open(QIODevice::ReadOnly)) {
+            prefsUnreadable = true;
+            veyra::log::warn("ui-prefs", "qml preferences unreadable; defaults used, file kept, saving disabled this session");
+            return;
+        }
         QJsonParseError error{};
         const auto doc = QJsonDocument::fromJson(file.readAll(), &error);
         if (error.error != QJsonParseError::NoError || !doc.isObject()) {
-            veyra::log::warn("ui-prefs", "qml preferences damaged; defaults used, file kept");
+            prefsUnreadable = true;
+            veyra::log::warn("ui-prefs", "qml preferences damaged; defaults used, file kept, saving disabled this session");
             return;
         }
         prefs = doc.object().toVariantMap();
     }
     bool savePrefs() {
+        if (prefsUnreadable) return false;
         const QString path = QString::fromStdWString(prefsFile().wstring());
         // A fresh data directory may not exist yet: the first preference saved
         // on a new profile used to fail and was silently kept only in memory.
@@ -1040,6 +1056,12 @@ struct QmlPlayerBridge::Impl {
     int xboxStatsTicks = 0;
     std::unique_ptr<ui::XboxModel> xbox;   // last: joins its worker first
 #endif
+
+    // Last published snapshot and the revision it came from. Polling compares
+    // revisions, so an unchanged snapshot costs one comparison per tick.
+
+    // The chain the UI edits, kept in step with the facade's pending settings.
+    uint64_t fgAutoSession = 0;       // 已为哪个会话决定过档位
 };
 
 
