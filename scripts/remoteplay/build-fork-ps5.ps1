@@ -128,10 +128,22 @@ if (-not (Test-Path -LiteralPath $python)) {
     if (-not $sysPython) { throw "Python 3 is required (python or py on PATH)" }
     Invoke-Checked $sysPython.Source @("-m", "venv", $venv)
 }
-& $python -c "import google.protobuf" 2>$null
-if ($LASTEXITCODE -ne 0) { Invoke-Checked $python @("-m", "pip", "install", "--disable-pip-version-check", "protobuf>=3.20,<6") }
-# build-native.ps1 and Chiaki's nanopb step call plain "python".
-$env:PATH = (Join-Path $venv "Scripts") + ";" + $env:PATH
+# nanopb runs protoc --python_out and imports the result, so the Python
+# protobuf runtime must not be older than vcpkg's protoc (libprotoc 36.2 ->
+# Python protobuf 7.36.2).
+# ponytail: assumes the 7.x Python line for protoc 34+; adjust when protobuf bumps majors again.
+$protocVersion = ((& $protoc --version) -replace '^libprotoc\s+', '').Trim()
+$wantProtobuf = "7.$protocVersion"
+# Windows PowerShell 5.1 turns redirected native stderr into a terminating
+# error under "Stop", so probe with "Continue".
+$ErrorActionPreference = "Continue"
+$haveProtobuf = (& $python -c "import google.protobuf as g; print(g.__version__)" 2>$null)
+$ErrorActionPreference = "Stop"
+if ("$haveProtobuf".Trim() -ne $wantProtobuf) {
+    Invoke-Checked $python @("-m", "pip", "install", "--disable-pip-version-check", "protobuf==$wantProtobuf")
+}
+# build-native.ps1 and Chiaki's nanopb step call plain "python" and "protoc".
+$env:PATH = (Join-Path $venv "Scripts") + ";" + (Split-Path -Parent $protoc) + ";" + $env:PATH
 
 # --- 3. Pinned chiaki-ng checkout ---------------------------------------------
 $chiaki = Join-Path $DepsRoot "chiaki-source"
@@ -172,7 +184,7 @@ $cmakeArgs = @("-S", $Root, "-B", $BuildDirectory, "-G", "Ninja",
     "-DVEYRA_RP_CHIAKI_SOURCE_DIR=$(Fwd $stage)",
     "-DVEYRA_RP_CHIAKI_VERIFY_DIR=$(Fwd $chiaki)",
     "-DPROTOC=$(Fwd $protoc)", "-DPKG_CONFIG_EXECUTABLE=$(Fwd $pkgConfig)",
-    "-DPython3_EXECUTABLE=$(Fwd $python)")
+    "-DPython3_EXECUTABLE=$(Fwd $python)", "-DPYTHON_EXECUTABLE=$(Fwd $python)")
 if (Test-Path -LiteralPath "$SdkRoot/libdovi/lib/dovi.lib") { $cmakeArgs += "-DVEYRA_LIBDOVI_ROOT=$sdk/libdovi" }
 if ($DisplayVersion) { $cmakeArgs += "-DVEYRA_DISPLAY_VERSION=$DisplayVersion" }
 Invoke-Checked "cmake" $cmakeArgs
