@@ -62,6 +62,10 @@ $Args = @("-S", (Join-Path $Root "services/remoteplay-probe"), "-B", $BuildDirec
     "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded")
 if ($PrefixPath) { $Args += "-DCMAKE_PREFIX_PATH=$PrefixPath" }
 if ($ToolchainFile) { $Args += "-DCMAKE_TOOLCHAIN_FILE=$ToolchainFile" }
+# Chiaki uses FindPythonInterp, which prefers any python3.exe it finds over
+# the caller's venv; pin it to the python on PATH (the nanopb venv).
+$pathPython = Get-Command python -ErrorAction SilentlyContinue
+if ($pathPython) { $Args += "-DPYTHON_EXECUTABLE=$($pathPython.Source)" }
 if ($ProtocPath) {
     $ProtocPath = (Resolve-Path $ProtocPath).Path
     $Args += "-DPROTOC=$ProtocPath"
